@@ -115,6 +115,15 @@ Our estimator of the second part is now $\log p_\theta (\mathbf{x}^{(ik)}|\mathb
 
 \subsection{Final objective function}
 
-$\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{x}^{(i)}, \mathbf{d}^{(i)}) = - \frac{1}{2}\sum\limits_{j=1}^{J}\{\frac{\sigma_{\phi,j}^2}{\sigma_{\theta,j}^2} + \frac{(\mu_{\phi,j} - \mu_{\theta,j})^2}{\sigma_{\phi,j}^2} + \log \sigma_{\theta,j}^2 - \log \sigma_{\phi,j}^2 - 1 - x_j^{(i)}\log d_j^{(i)} \}$
+Consists of the negative KL divergence (5) and the reconstruction error (7):
 
+\begin{align}
+\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{x}^{(ik)},
+ \mathbf{d}^{(i)}) = - \frac{1}{2}
+ \sum\limits_{j=1}^{J}\{
+ \frac{\sigma_{\phi,j}^{(ik)2}}	{\sigma_{\theta,j}^{(ik)2}} 
+ + \frac{(\mu_{\phi,j}^{(ik)} - \mu_{\theta,j}^{(ik)})^{2}}		{\sigma_{\phi,j}^{(ik)2}} 
+ + \log  \sigma_{\theta,j}^{(ik)2} - \log \sigma_{\phi,j}^{(ik)2}
+   - 1 - x_j^{(ik)}\log y_j^{(ik)} \}
+\end{align}
 \end{document}
