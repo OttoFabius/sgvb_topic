@@ -2,7 +2,7 @@
 
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb}
-\usepackage{dsfont}
+%\usepackage{dsfont} %install texlive-fonts-extra 
 \usepackage{tikz}
 \usetikzlibrary{bayesnet}
 
@@ -64,13 +64,13 @@ The log-likelihood of a data point i can be written as a sum of the lower bound 
 We try to optimize the lowerbound: 
 
 \begin{align}
-\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{x}^{(ik)}, \mathbf{d}^{(i)}) = \mathds{E}_{q_\phi(\mathbf{z}|\mathbf{x}^{ik},\mathbf{d}^{i})}[-\log q_\phi (\mathbf{z}| \mathbf{x}^{(ik)}, \mathbf{d}^{(i)})+\log p_\theta(\mathbf{z}, \mathbf{x}^{(ik)}|\mathbf{d}^{(i)} ]
+\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{x}^{(ik)}, \mathbf{d}^{(i)}) = \mathbf{E}_{q_\phi(\mathbf{z}|\mathbf{x}^{ik},\mathbf{d}^{i})}[-\log q_\phi (\mathbf{z}| \mathbf{x}^{(ik)}, \mathbf{d}^{(i)})+\log p_\theta(\mathbf{z}, \mathbf{x}^{(ik)}|\mathbf{d}^{(i)} ]
 \end{align}
 
 which, using Bayes rule, we can express as:
 
 \begin{align}
-\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{x}^{(ik)}, \mathbf{d}^{(i)}) = -D_{KL}(q_\phi (\mathbf{z}| \mathbf{x}^{(ik)}, \mathbf{d}^{(i)})||q_\phi (\mathbf{z}| \mathbf{d}^{(i)})) + \mathds{E}_{q_\phi(\mathbf{z}|\mathbf{x}^{(ik)},\mathbf{d}^{(i)})}[\log p_\theta (\mathbf{x}^{(ik)}|\mathbf{z})]
+\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{x}^{(ik)}, \mathbf{d}^{(i)}) = -D_{KL}(q_\phi (\mathbf{z}| \mathbf{x}^{(ik)}, \mathbf{d}^{(i)})||q_\phi (\mathbf{z}| \mathbf{d}^{(i)})) + \mathbf{E}_{q_\phi(\mathbf{z}|\mathbf{x}^{(ik)},\mathbf{d}^{(i)})}[\log p_\theta (\mathbf{x}^{(ik)}|\mathbf{z})]
 \end{align}
 
 Note that in the last term we don't condition on $\mathbf{d}^{(i)}$: $\mathbf{x}^{(ik)}$ is conditionally independent of $\mathbf{d}^{(i)}$ in our model.
@@ -99,7 +99,7 @@ D_{KL}(q_\phi (\mathbf{z}| \mathbf{x}, \mathbf{d})||p_\theta (\mathbf{z}| \mathb
 
 \subsection{SGVB estimator}
 
-For the second part of the lower bound, $\mathds{E}_{q_\phi(\mathbf{z}|\mathbf{x}^{(ik)},\mathbf{d}^{(i)})}[\log p_\theta (\mathbf{x}^{(ik)}|\mathbf{z})]$, we use a reparametrization of $\mathbf{z}$:
+For the second part of the lower bound, $\mathbf{E}_{q_\phi(\mathbf{z}|\mathbf{x}^{(ik)},\mathbf{d}^{(i)})}[\log p_\theta (\mathbf{x}^{(ik)}|\mathbf{z})]$, we use a reparametrization of $\mathbf{z}$:
 
 \begin{align} \mathbf{z}^{(ik)} = g_\phi(\mathbf{\epsilon}^{(ik)}, \mathbf{x}^{(ik)}) \text{    and    } \mathbf{\epsilon} 
  \sim p(\mathbf{\epsilon}) \text{   with  } p(\epsilon) = \mathcal{N}(\epsilon|0,1)
@@ -119,11 +119,11 @@ Consists of the negative KL divergence (5) and the reconstruction error (7):
 
 \begin{align}
 \mathcal{L}(\mathbf{\theta}, \phi; \mathbf{x}^{(ik)},
- \mathbf{d}^{(i)}) = - \frac{1}{2}
- \sum\limits_{j=1}^{J}\{
+ \mathbf{d}^{(i)}) = - 
+ \sum\limits_{j=1}^{J}\{\frac{1}{2}(
  \frac{\sigma_{\phi,j}^{(ik)2}}	{\sigma_{\theta,j}^{(ik)2}} 
  + \frac{(\mu_{\phi,j}^{(ik)} - \mu_{\theta,j}^{(ik)})^{2}}		{\sigma_{\phi,j}^{(ik)2}} 
  + \log  \sigma_{\theta,j}^{(ik)2} - \log \sigma_{\phi,j}^{(ik)2}
-   - 1 - x_j^{(ik)}\log y_j^{(ik)} \}
+   - 1) - x_j^{(ik)}\log y_j^{(ik)} \}
 \end{align}
 \end{document}
