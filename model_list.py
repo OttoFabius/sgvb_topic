@@ -11,7 +11,7 @@ import cPickle as pickle
 
 
 class model:
-    def __init__(self, voc_size, dimZ = 100, HU_dz = 50, HU_qx = 50, HU_qd = 50, learning_rate=0.001, sigmaInit=0.001):
+    def __init__(self, voc_size, dimZ = 2, HU_dz = 20, HU_qx = 50, HU_qd = 50, learning_rate=0.001, sigmaInit=0.001):
         """NB dimensions of HU_qx and HU_qd have to match if they merge"""
 
         self.dimZ = dimZ
@@ -41,10 +41,10 @@ class model:
         W_dz_q = th.shared(np.random.normal(0,sigmaInit,(HU_qd, voc_size)).astype(th.config.floatX), name = 'W_dz_q')
         b_dz_q = th.shared(np.random.normal(0,sigmaInit,(HU_qd,1)).astype(th.config.floatX), name = 'b_dz_q', broadcastable=(False,True))
 
-        W_q_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,HU_dz)).astype(th.config.floatX), name = 'W_q_mu')
+        W_q_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,HU_qd)).astype(th.config.floatX), name = 'W_q_mu')
         b_q_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'b_q_mu', broadcastable=(False,True))
 
-        W_q_var = th.shared(np.random.normal(0,sigmaInit,(dimZ, HU_dz)).astype(th.config.floatX), name = 'W_q_var')
+        W_q_var = th.shared(np.random.normal(0,sigmaInit,(dimZ, HU_qd)).astype(th.config.floatX), name = 'W_q_var')
         b_q_var = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'b_q_var', broadcastable=(False,True))
 
         self.params = OrderedDict([('W_dh', W_dh), ('b_dh', b_dh), ('W_d_mu', W_d_mu), ('b_d_mu', b_d_mu),  \
@@ -96,14 +96,14 @@ class model:
 
         H_q_lin = H_dz_lin + H_xz_lin
 
-        H_q = H_q_lin * (H_q_lin > 0)
+        H_q = H_q_lin * (H_q_lin > 0) 
 
         mu_q = T.dot(self.params['W_q_mu'], H_q) + self.params['b_q_mu']
         logvar_q = T.dot(self.params['W_q_var'], H_q) + self.params['b_q_var'] 
 
         z = mu_q + T.exp(0.5*logvar_q)*eps
-        # decoder. NB only one layer now
 
+        # decoder. NB only one layer now
         y = T.nnet.softmax(T.dot(self.params['W_zx'], z) + self.params['b_zx']) # use custom version if the dimensions are flipped?
 
         # define lowerbound 
@@ -111,7 +111,7 @@ class model:
         KLD = - 0.5 * self.dimZ * doc_size                          \
             + 0.5 * T.sum(                                          \
               T.exp(logvar_q - logvar_pzd)                          \
-            + T.pow((mu_q - mu_pzd), 2) / (T.exp(logvar_q) + 1e-8)  \
+            + T.pow((mu_q - mu_pzd), 2) / (T.exp(logvar_q))  \
             + logvar_pzd * doc_size - logvar_q)
 
         # recon_err = T.sum(  th.sparse.basic.mul(x, T.log(y))    )
@@ -143,7 +143,7 @@ class model:
 
 
         self.update = th.function([x, d, eps, doc_size, epoch], lowerbound, updates=updates)
-        self.error  = th.function([x, d, eps, doc_size]       , lowerbound)
+        self.lowerbound  = th.function([x, d, eps, doc_size]  , lowerbound)
 
 
     def iterate(self, data_x, data_d, epoch):
@@ -157,10 +157,9 @@ class model:
             doc_size = x.shape[0]
             eps = np.random.normal(0,1,[self.dimZ, doc_size])
             lowerbound_document = self.update(x.T, d, eps, doc_size, epoch)
-
             lowerbound += lowerbound_document
 
-        return error #NB need to divide by number of words
+        return lowerbound #NB need to divide by number of words
 
     def save_parameters(self, path):
         """Saves all the parameters in a way they can be retrieved later - not adapted for current model yet!"""
