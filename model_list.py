@@ -11,7 +11,7 @@ import cPickle as pickle
 
 
 class model:
-    def __init__(self, voc_size, dimZ = 2, HU_dz = 20, HU_qx = 50, HU_qd = 50, learning_rate=0.001, sigmaInit=0.001):
+    def __init__(self, voc_size, dimZ = 2, HU_dz = 20, HU_qx = 50, HU_qd = 50, learning_rate=0.01, sigmaInit=0.001):
         """NB dimensions of HU_qx and HU_qd have to match if they merge"""
 
         self.dimZ = dimZ
@@ -75,8 +75,8 @@ class model:
         doc_size = T.iscalar("doc_size")
         eps = T.dmatrix("eps")
 
-        x = T.dmatrix("x)")
-        # x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
+        # x = T.dmatrix("x)")
+        x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
 
         d = T.dcol("d")     #dimensions (?,1), broadcastable in 2nd dimension. Optionally a sparse matrix of (V x 1)?
 
@@ -87,37 +87,38 @@ class model:
         mu_pzd  = T.dot(self.params['W_d_mu'], H)  + self.params['b_d_mu']
         logvar_pzd = T.dot(self.params['W_d_var'], H) + self.params['b_d_var']
 
-        # Encoder. Should probably add extra hidden layer for x->z at some point because of the large amount of data x
+        # Encoder
+        # Should probably add extra hidden layer for x->z at some point because of the large amount of data x
 
         H_dz_lin = T.dot(self.params['W_dz_q'], d) + self.params['b_dz_q']
 
-        # H_xz_lin = th.sparse.dot(self.params['W_xz_q'], x) + self.params['b_xz_q']
-        H_xz_lin = T.dot(self.params['W_xz_q'], x) + self.params['b_xz_q']
+        H_xz_lin = th.sparse.dot(self.params['W_xz_q'], x) + self.params['b_xz_q']
+        # H_xz_lin = T.dot(self.params['W_xz_q'], x) + self.params['b_xz_q']
 
         H_q_lin = H_dz_lin + H_xz_lin
-
         H_q = H_q_lin * (H_q_lin > 0) 
 
         mu_q = T.dot(self.params['W_q_mu'], H_q) + self.params['b_q_mu']
-        logvar_q = T.dot(self.params['W_q_var'], H_q) + self.params['b_q_var'] 
-
-        z = mu_q + T.exp(0.5*logvar_q)*eps
+        logvar_q = T.dot(self.params['W_q_var'], H_q) + self.params['b_q_var']
 
         # decoder. NB only one layer now
+        z = mu_q + T.exp(0.5*logvar_q)*eps
         y = T.nnet.softmax(T.dot(self.params['W_zx'], z) + self.params['b_zx']) # use custom version if the dimensions are flipped?
 
         # define lowerbound 
         # NB need to account for including doc specific prior for every word, can in part be done by broadcasting
-        KLD = - 0.5 * self.dimZ * doc_size                          \
+        KLD = - 0.5 * self.dimZ * doc_size                           \
             + 0.5 * T.sum(                                          \
               T.exp(logvar_q - logvar_pzd)                          \
-            + T.pow((mu_q - mu_pzd), 2) / (T.exp(logvar_q))  \
-            + logvar_pzd * doc_size - logvar_q)
+            + T.pow((mu_q - mu_pzd), 2) / (T.exp(logvar_q))         \
+            + logvar_pzd  - logvar_q) #broadcast logvar_pzd everywhere
 
-        # recon_err = T.sum(  th.sparse.basic.mul(x, T.log(y))    )
-        recon_err = T.sum(x * T.log(y))
+        
+        # recon_err = T.sum(  th.sparse.basic.mul(x, T.log(y))    ) #problems with this unsolved!
+        x_reg = th.sparse.dense_from_sparse(x)
+        recon_err = T.sum(x_reg * T.log(y))
 
-        lowerbound = recon_err - KLD
+        lowerbound = (recon_err - KLD)/doc_size
 
         gradients = T.grad(lowerbound, self.params.values())
 
@@ -142,7 +143,7 @@ class model:
             updates[v] = new_v
 
 
-        self.update = th.function([x, d, eps, doc_size, epoch], lowerbound, updates=updates)
+        self.update = th.function([x, d, eps, doc_size, epoch], [lowerbound, KLD], updates=updates)
         self.lowerbound  = th.function([x, d, eps, doc_size]  , lowerbound)
 
 
@@ -150,14 +151,19 @@ class model:
         """Main method, slices data in minibatches and performs a training epoch. Returns LB for whole dataset"""
 
         lowerbound = 0
-
+        progress = -1
         for i in xrange(len(data_x)):
-            x = data_x[i]
+            x = data_x[i] #sparse
             d = data_d[i]
             doc_size = x.shape[0]
             eps = np.random.normal(0,1,[self.dimZ, doc_size])
-            lowerbound_document = self.update(x.T, d, eps, doc_size, epoch)
+            lowerbound_document, KLD = self.update(x.T, d, eps, doc_size, epoch)
             lowerbound += lowerbound_document
+            if progress != int(50.*i/len(data_x)):
+                print '='*int(50.*i/len(data_x))+'>'
+                progress = int(50.*i/len(data_x))
+
+
 
         return lowerbound #NB need to divide by number of words
 
@@ -169,7 +175,7 @@ class model:
         pickle.dump([v.get_value() for v in self.v.values()], open(path + "/v.pkl", "wb"))
 
     def load_parameters(self, path):
-        """Load the variables in a shared variable safe way  - not adapted for current model yet!"""
+        """Load the variables in a shared variable safe way - not adapted for current model yet!"""
         names = pickle.load(open(path + "/names.pkl", "rb"))
         params = pickle.load(open(path + "/params.pkl", "rb"))
 

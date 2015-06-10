@@ -6,7 +6,6 @@ from model_list import model
 x, d = load_pickle_list()
 voc_size = d[1].size
 
-
 print "initializing model + graph..."
 model = model(voc_size)
 
