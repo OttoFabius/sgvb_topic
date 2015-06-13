@@ -101,16 +101,16 @@ D_{KL}(q_\phi (\mathbf{z}| \mathbf{x}, \mathbf{d})||p_\theta (\mathbf{z}| \mathb
 
 For the second part of the lower bound, $\mathbf{E}_{q_\phi(\mathbf{z}|\mathbf{x}^{(ik)},\mathbf{d}^{(i)})}[\log p_\theta (\mathbf{x}^{(ik)}|\mathbf{z})]$, we use a reparametrization of $\mathbf{z}$:
 
-\begin{align} \mathbf{z}^{(ik)} = g_\phi(\mathbf{\epsilon}^{(ik)}, \mathbf{x}^{(ik)}) \text{    and    } \mathbf{\epsilon} 
+\begin{align} z_j^{(ik)} = g_\phi(\mathbf{\epsilon}_j^{(ik)}, \mathbf{x}^{(ik)}) \text{    and    } \mathbf{\epsilon} 
  \sim p(\mathbf{\epsilon}) \text{   with  } p(\epsilon) = \mathcal{N}(\epsilon|0,1)
 \end{align}
 
-Note that we use only one sample of $\mathbf{z}^{(ik)}$ here (i.e. L=1 in Kingma \& Welling 2013), which we know works well if we use batches ($>100$) during optimization.
+Note that we use only one sample of $z_j^{(ik)}$ here (i.e. L=1 in Kingma \& Welling 2013), which we know works well if we use batches ($>100$) during optimization.
 
-Our estimator of the second part is now $\log p_\theta (\mathbf{x}^{(ik)}|\mathbf{z}^{(ik)})$, which is a multinomial. We use a softmax in the final layer to output $\mathbf{y}^{(ik)}$, which represents the word probabilities, to ensure that $\sum\limits_{j=1}^J y_j^{(ik)} = 1$. The log likelihood becomes: 
+Our estimator of the second part is now $\log p_\theta (\mathbf{x}^{(ik)}|\mathbf{z}^{(ik)})$, which is a multinomial. We use a softmax in the final layer to output $\mathbf{y}^{(ik)}$, which represents the word probabilities, to ensure that $\sum\limits_{m=1}^M y_m^{(ik)} = 1$. The log likelihood becomes: 
 
 \begin{align}
-\log p_\theta (\mathbf{x}^{(ik)}|\mathbf{z}^(ik)) = \sum\limits_{j=1}^{J}x_j^{(ik)}\log y_j^{(ik)}
+\log p_\theta (\mathbf{x}^{(ik)}|\mathbf{z}^{(ik)}) = \sum\limits_{m=1}^{M}x_m^{(ik)}\log y_m^{(ik)}
 \end{align}
 
 \subsection{Final objective function}
@@ -124,6 +124,6 @@ Consists of the negative KL divergence (5) and the reconstruction error (7):
  \frac{\sigma_{\phi,j}^{(ik)2}}	{\sigma_{\theta,j}^{(ik)2}} 
  + \frac{(\mu_{\phi,j}^{(ik)} - \mu_{\theta,j}^{(ik)})^{2}}		{\sigma_{\phi,j}^{(ik)2}} 
  + \log  \sigma_{\theta,j}^{(ik)2} - \log \sigma_{\phi,j}^{(ik)2}
-   - 1) - x_j^{(ik)}\log y_j^{(ik)} \}
+   - 1) \} + \sum\limits_{m=1}^{M} x_m^{(ik)}\log y_m^{(ik)} 
 \end{align}
 \end{document}

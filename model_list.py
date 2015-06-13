@@ -6,12 +6,11 @@ import scipy as sp
 from theano.tensor.shared_randomstreams import RandomStreams
 
 from collections import OrderedDict
-
 import cPickle as pickle
 
 
-class model:
-    def __init__(self, voc_size, dimZ = 2, HU_dz = 20, HU_qx = 50, HU_qd = 50, learning_rate=0.01, sigmaInit=0.001):
+class topic_model:
+    def __init__(self, voc_size, dimZ, HU_dz, HU_qx, HU_qd, learning_rate = 0.002, sigmaInit = 0.01):
         """NB dimensions of HU_qx and HU_qd have to match if they merge"""
 
         self.dimZ = dimZ
@@ -114,7 +113,7 @@ class model:
             + logvar_pzd  - logvar_q) #broadcast logvar_pzd everywhere
 
         
-        # recon_err = T.sum(  th.sparse.basic.mul(x, T.log(y))    ) #problems with this unsolved!
+        # recon_err = T.sum(  th.sparse.basic.mul(T.log(y),x)    ) #problems with this unsolved!
         x_reg = th.sparse.dense_from_sparse(x)
         recon_err = T.sum(x_reg * T.log(y))
 
@@ -145,10 +144,12 @@ class model:
 
         self.update = th.function([x, d, eps, doc_size, epoch], [lowerbound, KLD], updates=updates)
         self.lowerbound  = th.function([x, d, eps, doc_size]  , lowerbound)
+        self.encode = th.function([x, d, doc_size], mu_q, on_unused_input = 'ignore')
 
 
     def iterate(self, data_x, data_d, epoch):
-        """Main method, slices data in minibatches and performs a training epoch. Returns LB for whole dataset"""
+        """Main method, slices data in minibatches and performs a training epoch. Returns LB for whole dataset
+            added a progress print during an epoch (comment/uncomment line 164)"""
 
         lowerbound = 0
         progress = -1
@@ -160,7 +161,7 @@ class model:
             lowerbound_document, KLD = self.update(x.T, d, eps, doc_size, epoch)
             lowerbound += lowerbound_document
             if progress != int(50.*i/len(data_x)):
-                print '='*int(50.*i/len(data_x))+'>'
+                # print '='*int(50.*i/len(data_x))+'>'
                 progress = int(50.*i/len(data_x))
 
 
