@@ -9,13 +9,12 @@ from collections import OrderedDict
 import cPickle as pickle
 
 
-class topic_model:
-    def __init__(self, voc_size, dimZ, HU_dz, HU_qx, HU_qd, learning_rate, sigmaInit, L=1):
+class topic_model_matrix:
+    def __init__(self, voc_size, dimZ, HU_dz, HU_qx, HU_qd, learning_rate, sigmaInit):
         """NB dimensions of HU_qx and HU_qd have to match if they merge"""
 
         self.dimZ = dimZ
         self.learning_rate = th.shared(learning_rate)
-        self.L = L
 
         # define number of hidden units in each hidden layer if hidden layers exist
 
@@ -73,14 +72,15 @@ class topic_model:
         """ Defines optimization criterion and creates symbolic gradient function"""
 
         doc_size = T.iscalar("doc_size")
-        x = th.sparse.csr_matrix(name='x', dtype=th.config.floatX)
-        d = T.dcol("d")     #dimensions (?,1), broadcastable in 2nd dimension. Optionally a sparse matrix of (V x 1)?
+        eps = T.dmatrix("eps")
 
-        seed = 20
-        srng = T.shared_randomstreams.RandomStreams(seed=seed)
+        # x = T.dmatrix("x)")
+        x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
+
+        d = th.sparse.csc_matrix(name='d', dtype=th.config.floatX)    #dimensions (?,1), broadcastable in 2nd dimension. Optionally a sparse matrix of (V x 1)?
 
         # log p(z|d). One layer to hidden should be fine as we have few documents
-        H_lin = T.dot(self.params['W_dh'], d) + self.params['b_dh']
+        H_lin = th.sparse.dot(self.params['W_dh'], d) + self.params['b_dh']
         H = H_lin * (H_lin>0.)
 
         mu_pzd  = T.dot(self.params['W_d_mu'], H)  + self.params['b_d_mu']
@@ -88,46 +88,35 @@ class topic_model:
 
         # Encoder
         # Should probably add extra hidden layer for x->z at some point because of the large amount of data x
-        # 1xhidden
-        H_dz_lin = T.dot(self.params['W_dz_q'], d) + self.params['b_dz_q']
-        # batchxhidden
+
+        H_dz_lin = th.sparse.dot(self.params['W_dz_q'], d) + self.params['b_dz_q']
+
         H_xz_lin = th.sparse.dot(self.params['W_xz_q'], x) + self.params['b_xz_q']
         # H_xz_lin = T.dot(self.params['W_xz_q'], x) + self.params['b_xz_q']
 
-        # batch x hidden
         H_q_lin = H_dz_lin + H_xz_lin
         H_q = H_q_lin * (H_q_lin > 0) 
 
-        # batch x dimZ
         mu_q = T.dot(self.params['W_q_mu'], H_q) + self.params['b_q_mu']
         logvar_q = T.dot(self.params['W_q_var'], H_q) + self.params['b_q_var']
 
-        eps = srng.normal((self.dimZ, doc_size), avg = 0.0, std = 1.0, dtype=theano.config.floatX)
-        z = mu_q# + T.exp(0.5*logvar_q)*eps
-
         # decoder. NB only one layer now
-        # if self.L != 1:
-        #     for i in xrange(1,self.L):
-        #         eps = srng.normal((self.dimZ, doc_size), avg = 0.0, std = 1.0, dtype=theano.config.floatX)
-        #         z += mu_q + T.exp(0.5*logvar_q)*eps
-        #     z = z/self.L
-            
-        y_lin = T.dot(self.params['W_zx'], z) + self.params['b_zx']
-        y = T.nnet.softmax(y_lin.T).T # use custom version if the dimensions are flipped?
+        z = mu_q + T.exp(0.5*logvar_q)*eps
+        y = T.nnet.softmax(T.dot(self.params['W_zx'], z) + self.params['b_zx']) # use custom version if the dimensions are flipped?
 
         # define lowerbound 
         # NB need to account for including doc specific prior for every word, can in part be done by broadcasting
-        KLD = - 0.5 * self.dimZ * doc_size                          \
+        KLD = - 0.5 * self.dimZ                                     \
             + 0.5 * T.sum(                                          \
               T.exp(logvar_q - logvar_pzd)                          \
             + T.pow((mu_q - mu_pzd), 2) / (T.exp(logvar_q))         \
-            + logvar_pzd  - logvar_q) #broadcast logvar_pzd everywhere
+            + logvar_pzd  - logvar_q) 
 
-
+        
         recon_err_mat_sparse = x * T.log(y)
         recon_err_mat = th.sparse.dense_from_sparse(recon_err_mat_sparse)
         recon_err = T.sum(recon_err_mat)
-        lowerbound = (recon_err - KLD)
+        lowerbound = (recon_err - KLD)/doc_size
 
         gradients = T.grad(lowerbound, self.params.values())
 
@@ -146,14 +135,14 @@ class topic_model:
             new_m = self.b1 * gradient + (1 - self.b1) * m
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v
        
-            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-100) 
+            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-8) 
 
             updates[m] = new_m
             updates[v] = new_v
 
 
-        self.update = th.function([x, d, doc_size, epoch], [lowerbound, KLD, recon_err_mat], updates=updates)
-        self.lowerbound  = th.function([x, d, doc_size]  , lowerbound)
+        self.update = th.function([x, d, eps, doc_size, epoch], [lowerbound, KLD], updates=updates)
+        self.lowerbound  = th.function([x, d, eps, doc_size]  , lowerbound)
         self.encode = th.function([x, d, doc_size], mu_q, on_unused_input = 'ignore')
 
 
@@ -167,30 +156,17 @@ class topic_model:
             x = data_x[i] #sparse
             d = data_d[i]
             doc_size = x.shape[0]
-            lowerbound_document, KLD, errs = self.update(x.T, d, doc_size, epoch)
+            eps = np.random.normal(0,1,[self.dimZ, doc_size])
+            lowerbound_document, KLD = self.update(x.T, d, eps, doc_size, epoch)
             lowerbound += lowerbound_document
-            # print y
-            # print '--------------------------------------------------'
-            # print np.sum(y, axis = 0)
-            # print y.shape
-            # raw_input()
-            # print x
-            error_terms = errs[errs !=0]
-            print '---------------------------------------------------------------------------------------------------'
-            print "doc nr:", i, "doc lb: ", lowerbound_document/doc_size, "doc size: ", doc_size
-            print "max error: ", np.min(errs), "min err: ", np.max(errs[errs !=0]), "pct_bad: ", int([-8.84>=i for i in error_terms].count(True))/int(doc_size)
-            if lowerbound_document/doc_size<= (-9.0):
-                print error_terms
-
-            # raw_input()
-            # if progress != int(50.*i/len(data_x)):
-            #     print '='*int(50.*i/len(data_x))+'>'
-            #     progress = int(50.*i/len(data_x))
+            if progress != int(50.*i/len(data_x)):
+                # print '='*int(50.*i/len(data_x))+'>'
+                progress = int(50.*i/len(data_x))
 
 
 
         return lowerbound #NB need to divide by number of words
-  
+
     def save_parameters(self, path):
         """Saves all the parameters in a way they can be retrieved later - not adapted for current model yet!"""
         pickle.dump([name for name in self.params.keys()], open(path + "/names.pkl", "wb"))

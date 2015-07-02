@@ -88,19 +88,21 @@ Co-Supervisors: M. Welling, D.P. Kingma
 \caption{Graphical Model of LDA}
 \label{lda}
 \end{wrapfigure}
+
+
 - Generative model\\
 - Dirichlet priors\\ 
 - $\theta^i$ and $z^{(ik)}$ model topic,\\
 \hspace{5mm} both multinomials \\
 - $z^{(ik)}$ drawn from $\theta^{(i)}$,\\
 \hspace{1.6mm} $x^{(ik)}$ drawn from $z^{(ik)}$\\
-\vspace{40mm}
+\vspace{70mm}
 \end{frame}
 
 \begin{frame}
-\frametitle{Graphical model}
-\begin{figure}[ht]
-  \begin{center}
+\frametitle{SGVB Topic Model}
+\begin{wrapfigure}[0]{r}{0.5\textwidth}
+  \centering
     \begin{tikzpicture}[node distance = 1.5cm]
         \node[obs] (x) {$x^{(ik)}$}; 
 
@@ -124,11 +126,22 @@ Co-Supervisors: M. Welling, D.P. Kingma
         \plate {xzd} {(x)(z)(d)(xz)} {$i = 1...N$};
 
     \end{tikzpicture}
-  \end{center}
+
 \caption{Graphical Model of SGVB Topic Modelling}
 \label{sgvb_topic}
-\end{figure}
+\end{wrapfigure}
 
+
+- Similar (also generative) Graphical model\\
+- Uses SGVB \\ 
+- Dependencies can be (powerful) deep nets \\
+- $z^{(ik)}$ models topic \textit{distribution} \\
+- Replacing the restrictive Multinomial \\
+\hspace{2mm} distributions in LDA with \\
+\hspace{2mm} (deep) neural nets makes this \\
+\hspace{2mm} model more powerful, especially \\
+\hspace{2mm} in conjunction with large datasets.
+\vspace{70mm}
 \end{frame}
 
 

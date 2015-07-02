@@ -1,10 +1,12 @@
 import numpy as np
 import theano as th
-from loadsave import load_pickle_list # , load_pickle
+from loadsave import load_pickle_list, load_pickle_matrix, create_pickle_matrix, create_pickle_list # , load_pickle
 from model_list import topic_model
+from model_matrix import topic_model_matrix
 import sys
 import ConfigParser
 import time
+from scipy.sparse import csr_matrix
 
 
 
@@ -19,16 +21,31 @@ latent_variables = config.getint('parameters','latent_variables')
 hidden_units_pzd = config.getint('parameters','hidden_units_pzd')
 hidden_units_qx = config.getint('parameters','hidden_units_qx')
 hidden_units_qd = config.getint('parameters','hidden_units_qd')
+learning_rate = config.getfloat('parameters','learning_rate')
+sigmaInit = config.getfloat('parameters','sigmaInit')
+doc_per_doc = config.getboolean('parameters','doc_per_doc')
 
-#	----------------				load dataset       	 	   --------------------
+#	----------------				load dataset & create model 	   --------------------
 
-x, d = load_pickle_list() #no argument uses KOS dataset
-voc_size = d[1].size
 
-#-------------------       		 initialize model       		--------------------
+# create_pickle_list(filename = 'data/KOS/docwordkos_matrix.npy')
 
-print "initializing model + graph..."
-model = topic_model(voc_size, latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qd)
+if doc_per_doc:
+    print 'using per-doc batch model'
+    x, d = load_pickle_list() #no argument uses KOS dataset
+    voc_size = d[1].size
+    print "initializing model + graph..."
+    model = topic_model(voc_size, latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qd, learning_rate, sigmaInit, L=10)
+    print 'done'
+else:
+    print 'using randomized batch model'
+    x,d = load_pickle_matrix() #no argument uses KOS dataset
+    voc_size = d.shape[1]
+    voc_size = 1
+    
+    print "initializing model + graph..."
+    model = topic_model_matrix(voc_size, latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qd, learning_rate, sigmaInit)
+    print 'done'
 
 #	----------------		optional: load parameters           --------------------
 
@@ -42,7 +59,7 @@ else:
 	epoch = 0
 
 #	----------------				iterate      			     --------------------
-	
+print 'iterating'
 while True:
     start = time.time()
     epoch += 1
@@ -51,6 +68,7 @@ while True:
     lowerbound_list = np.append(lowerbound_list, lowerbound)
     if epoch % 10 == 0:
     	print "saving lowerbound, params"
-    	np.save('results/' + sys.argv[1] + 'lowerbound.npy', lowerbound_list)
-    	model.save_parameters("results")
+    	np.save('results/' + sys.argv[1] + '/lowerbound.npy', lowerbound_list)
+    	model.save_parameters("results/" + sys.argv[1])
+        print "done"
     
