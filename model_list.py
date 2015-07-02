@@ -103,7 +103,7 @@ class topic_model:
         logvar_q = T.dot(self.params['W_q_var'], H_q) + self.params['b_q_var']
 
         eps = srng.normal((self.dimZ, doc_size), avg = 0.0, std = 1.0, dtype=theano.config.floatX)
-        z = mu_q# + T.exp(0.5*logvar_q)*eps
+        z = mu_q+ T.exp(0.5*logvar_q)*eps
 
         # decoder. NB only one layer now
         # if self.L != 1:
