@@ -22,7 +22,7 @@ def load_pickle_list(filename = "_train_list.pklz"):
 
 	return x, d
 
-def load_pickle_matrix(filename = "_train_matrix.pklz"):
+def load_pickle_matrix(filename = "_matrix.pklz"):
 	"""assumes files for words (x) and documents)d) start with x and d and are identical further"""
 
 	print "loading X...."
@@ -34,9 +34,14 @@ def load_pickle_matrix(filename = "_train_matrix.pklz"):
 	f = gzip.open('d' + filename,'rb')
 	d = pickle.load(f)
 	f.close()
+	print "done, now d_num"
+
+	f = gzip.open('d_nrs' + filename,'rb')
+	d_num = pickle.load(f)
+	f.close()
 	print "done"
 
-	return x, d
+	return x, d, d_num
 
 def create_pickle_matrix(filename = 'data/KOS/docwordkos_matrix.npy'):
 	"""
@@ -44,69 +49,72 @@ def create_pickle_matrix(filename = 'data/KOS/docwordkos_matrix.npy'):
 		shuffled word representations and matching document representations
 		It takes around 15-30 mins all in all and needs 8gb ram (or more) for KOS
 	"""
-	print 'pickling'
 	docs = np.load(filename)
 
 	words_in_doc = (np.sum(docs, axis = 1))
 	[ndocs, V] = docs.shape
 
-	X = 	lil_matrix((int(np.sum(words_in_doc)), V))
-	d = 	lil_matrix((int(np.sum(words_in_doc)), V))
+	# ndocs = 100
+	X 		= lil_matrix((int(np.sum(words_in_doc)), V))
+	d 		= lil_matrix((int(ndocs)			   , V))
+	doc_nrs = np.zeros 	((int(np.sum(words_in_doc)), 1))
 
 	total_words = 0
-
+	
 	for doc in xrange(ndocs):
-		X_doc = np.zeros((words_in_doc[doc],V))
 		counter = 0
+		X_doc = np.zeros((words_in_doc[doc],V))
+		doc_nrs_doc = np.ones((words_in_doc[doc],1))*(doc+1)
 
-		d_doc = np.tile(docs[doc,:], (words_in_doc[doc],1))
+		d_doc = docs[doc,:]
 
 		for word in xrange(V):
 			n_of_word = int(docs[doc,word])
+
 			for k in xrange(n_of_word):
 				X_doc[counter, word] = 1
 				counter += 1
 
-
-		X[int(total_words):int(total_words+words_in_doc[doc]), :] = X_doc
-		d[int(total_words):int(total_words+words_in_doc[doc]), :] = d_doc
+		X 		[int(total_words):int(total_words+words_in_doc[doc]), :	] = X_doc
+		d 		[int(total_words):int(total_words+words_in_doc[doc]), : ] = d_doc
+		doc_nrs [int(total_words):int(total_words+words_in_doc[doc])	] = doc_nrs_doc
 		total_words += words_in_doc[doc]
 		print 'next doc: doc', doc
 		print 'done'
 
 	# shuffle
-	print "converting to csr, first X:"
+	print "shuffling"
+
+	order = np.arange(X.shape[0])
+	np.random.shuffle(order)
+	X 		= X 	 [order,:]
+	doc_nrs = doc_nrs[order  ]
+
+	print "converting X to csr:"
 
 	X = X.tocsr()
 	print " now d"
 	d = d.tocsr()
 
-	print "shuffling"
-	X, d = resample(X, d, random_state=0, replace=False)
-	# order = np.arange(X.shape[0])
-	# np.random.shuffle(order)
-	# X_shuf = X[order,:]
-	# d_shuf = dorder,:]
 
-	print "converting to csc"
+	# print "converting to csc"
 
-	X = csc_matrix(X)
-	d = csc_matrix(d)
-
-
-		# X.append(csc_matrix(X_doc))
-		# d.append(np.expand_dims(docs[doc,:], axis=1))
-		# print 'next doc: doc ', doc
-
+	# X = csc_matrix(X)
+	# d = csc_matrix(d)
 			
 	print"pickling X...."
-	f = gzip.open('x_train_matrix.pklz','wb')
+	f = gzip.open('x_matrix.pklz','wb')
 	pickle.dump(X, f)
 	f.close()
 	print "done, now d"
 
-	f = gzip.open('d_train_matrix.pklz','wb')
+	f = gzip.open('d_matrix.pklz','wb')
 	pickle.dump(d, f)
+	f.close()
+
+	print "and the doc nrs"
+	f = gzip.open('d_nrs_matrix.pklz','wb')
+	pickle.dump(doc_nrs, f)
 	f.close()
 
 def create_pickle_list(filename = 'data/KOS/docwordkos_matrix.npy', dtype = 'npy', lemmatize=True, stem=False, sw_removal=True):

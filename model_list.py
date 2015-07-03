@@ -88,24 +88,18 @@ class topic_model:
 
         # Encoder
         # Should probably add extra hidden layer for x->z at some point because of the large amount of data x
-        # 1xhidden
         H_dz_lin = T.dot(self.params['W_dz_q'], d) + self.params['b_dz_q']
-        # batchxhidden
         H_xz_lin = th.sparse.dot(self.params['W_xz_q'], x) + self.params['b_xz_q']
-        # H_xz_lin = T.dot(self.params['W_xz_q'], x) + self.params['b_xz_q']
 
-        # batch x hidden
         H_q_lin = H_dz_lin + H_xz_lin
         H_q = H_q_lin * (H_q_lin > 0) 
 
-        # batch x dimZ
         mu_q = T.dot(self.params['W_q_mu'], H_q) + self.params['b_q_mu']
         logvar_q = T.dot(self.params['W_q_var'], H_q) + self.params['b_q_var']
 
         eps = srng.normal((self.dimZ, doc_size), avg = 0.0, std = 1.0, dtype=theano.config.floatX)
         z = mu_q+ T.exp(0.5*logvar_q)*eps
 
-        # decoder. NB only one layer now
         # if self.L != 1:
         #     for i in xrange(1,self.L):
         #         eps = srng.normal((self.dimZ, doc_size), avg = 0.0, std = 1.0, dtype=theano.config.floatX)
@@ -170,17 +164,15 @@ class topic_model:
             lowerbound_document, KLD, errs = self.update(x.T, d, doc_size, epoch)
             lowerbound += lowerbound_document
             # print y
-            # print '--------------------------------------------------'
+            print '--------------------------------------------------'
             # print np.sum(y, axis = 0)
             # print y.shape
             # raw_input()
             # print x
             error_terms = errs[errs !=0]
-            print '---------------------------------------------------------------------------------------------------'
-            print "doc nr:", i, "doc lb: ", lowerbound_document/doc_size, "doc size: ", doc_size
-            print "max error: ", np.min(errs), "min err: ", np.max(errs[errs !=0]), "pct_bad: ", int([-8.84>=i for i in error_terms].count(True))/int(doc_size)
-            if lowerbound_document/doc_size<= (-9.0):
-                print error_terms
+            for p in self.params.values():
+                vals = p.get_value()
+                print np.linalg.norm(vals)
 
             # raw_input()
             # if progress != int(50.*i/len(data_x)):

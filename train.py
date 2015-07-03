@@ -8,8 +8,6 @@ import ConfigParser
 import time
 from scipy.sparse import csr_matrix
 
-
-
 #-------------------       		 parse config file       		--------------------
 import warnings
 warnings.filterwarnings("ignore")
@@ -39,10 +37,9 @@ if doc_per_doc:
     print 'done'
 else:
     print 'using randomized batch model'
-    x,d = load_pickle_matrix() #no argument uses KOS dataset
-    voc_size = d.shape[1]
-    voc_size = 1
-    
+    x,d,d_nrs = load_pickle_matrix() #no argument uses KOS dataset
+    d_nrs = np.ndarray.flatten(d_nrs)
+    voc_size = d.shape[1]    
     print "initializing model + graph..."
     model = topic_model_matrix(voc_size, latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qd, learning_rate, sigmaInit)
     print 'done'
@@ -63,10 +60,13 @@ print 'iterating'
 while True:
     start = time.time()
     epoch += 1
-    lowerbound = model.iterate(x, d, epoch)
+    if doc_per_doc:
+        lowerbound = model.iterate(x, d, epoch)
+    else:
+        lowerbound = model.iterate(x, d, d_nrs, epoch)
     print 'epoch ', epoch, 'with lowerbound = ', lowerbound/np.sum(d), "and {0} seconds".format(time.time() - start)
     lowerbound_list = np.append(lowerbound_list, lowerbound)
-    if epoch % 10 == 0:
+    if epoch % 5 == 0:
     	print "saving lowerbound, params"
     	np.save('results/' + sys.argv[1] + '/lowerbound.npy', lowerbound_list)
     	model.save_parameters("results/" + sys.argv[1])
