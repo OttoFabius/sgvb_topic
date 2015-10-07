@@ -41,7 +41,7 @@ class BaseOptimizer(object):
             start = time.time()
             inp = d[batches[j]:batches[j + 1]].toarray()
             print "toarray time = ", time.time() - start
-                   if d.shape[0] > 0 else d for d in data]
+                if d.shape[0] > 0 else d for d in data]
             objectives = np.array(self.ascent(*inp))
             if np.isnan(objectives).any():
                 print lb
