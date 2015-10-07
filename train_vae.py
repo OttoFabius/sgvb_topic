@@ -4,7 +4,7 @@ from loadsave import load_pickle_list, load_pickle_matrix, create_pickle_matrix,
 import sys
 import ConfigParser
 import time
-from scipy.sparse import csr_matrix
+import scipy.sparse as sp
 import VAE, optimizer, generate_params, blocks
 
 if __name__=="__main__":
@@ -20,7 +20,21 @@ if __name__=="__main__":
 	    iterations = config.getint('parameters','iterations')
 	    learningRate = config.getfloat('parameters','learningRate')
 	    polyak = config.getboolean('parameters','polyak')
-	    batch_size = config.getint('parameters','batch_size')   
+	    batch_size = config.getint('parameters','batch_size')  
+
+	    dim_h_en_z_2 = config.getint('parameters','dim_h_en_z_2')
+	    if dim_h_en_z_2!=0:
+	    	dim_h_en_z.append(dim_h_en_z_2)
+	    dim_h_de_x_2 = config.getint('parameters','dim_h_de_x_2')
+	    if dim_h_de_x_2!=0:
+	    	dim_h_de_x.append(dim_h_de_x_2) 
+
+	   	dim_h_en_z_3 = config.getint('parameters','dim_h_en_z_3')
+	    if dim_h_en_z_3!=0:
+	    	dim_h_en_z.append(dim_h_en_z_3)
+	    dim_h_de_x_3 = config.getint('parameters','dim_h_de_x_3')
+	    if dim_h_de_x_3!=0:
+	    	dim_h_de_x.append(dim_h_de_x_3) 
 
 	    return dim_h_en_z, dim_h_de_x, dim_z, L, iterations, learningRate,  polyak, batch_size
 
@@ -35,7 +49,8 @@ if __name__=="__main__":
 
 	#-------------------      		 load dataset		       		--------------------
 
-	x_all = np.load('data/KOS/docwordkos_matrix.npy')
+	x_all = np.load('data/KOS/lil.npy')
+	print x_all[1[1]]
 	x = x_all[:3000,:]
 	n, v = x.shape
 	x_valid = x_all[3000:,:]

@@ -38,7 +38,7 @@ class BaseOptimizer(object):
         batches = np.arange(0, data[0].shape[0], self.batch_size)
         lb = 0
         for j in xrange(len(batches) - 1):
-            inp = [d[batches[j]:batches[j + 1]]
+            inp = [d[batches[j]:batches[j + 1]].toarray()
                    if d.shape[0] > 0 else d for d in data]
             objectives = np.array(self.ascent(*inp))
             if np.isnan(objectives).any():
