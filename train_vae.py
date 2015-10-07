@@ -49,8 +49,7 @@ if __name__=="__main__":
 
 	#-------------------      		 load dataset		       		--------------------
 
-	x_all = np.load('data/KOS/lil.npy')
-	print x_all[1[1]]
+	x_all = np.load('data/NY/docwordny_matrix.npy')
 	x = x_all[:3000,:]
 	n, v = x.shape
 	x_valid = x_all[3000:,:]
