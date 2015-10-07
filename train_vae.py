@@ -8,6 +8,7 @@ import scipy.sparse as sp
 import VAE, optimizer, generate_params, blocks
 from scipy.io import loadmat, savemat
 import gzip
+import cPickle as pickle
 
 if __name__=="__main__":
 
