@@ -253,7 +253,7 @@ def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
 	each line thereafter contains {doc_id word_id word_freq}"""
 
 	f = open(filename)
-	n_docs = 3 #int(f.readline())
+	n_docs = int(f.readline())
 	voc_size = int(f.readline())
 
 	f.readline() #total words
