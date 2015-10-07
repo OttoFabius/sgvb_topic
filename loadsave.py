@@ -253,7 +253,7 @@ def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
 	each line thereafter contains {doc_id word_id word_freq}"""
 
 	f = open(filename)
-	n_docs = int(f.readline())
+	n_docs = 3 #int(f.readline())
 	voc_size = int(f.readline())
 
 	f.readline() #total words
@@ -270,4 +270,6 @@ def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
 				print i
 			i+=1
 			
-	np.save(str(filename).rsplit('.')[0] + '_matrix.npy', docs) 
+	f = gzip.open('data/NY/docwordny_matrix.pklz','wb')
+	pickle.dump(doc_nrs, f)
+	f.close()

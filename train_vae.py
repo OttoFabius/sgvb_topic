@@ -6,6 +6,7 @@ import ConfigParser
 import time
 import scipy.sparse as sp
 import VAE, optimizer, generate_params, blocks
+from scipy.io import loadmat, savemat
 
 if __name__=="__main__":
 
@@ -21,11 +22,13 @@ if __name__=="__main__":
 	    learningRate = config.getfloat('parameters','learningRate')
 	    polyak = config.getboolean('parameters','polyak')
 	    batch_size = config.getint('parameters','batch_size')  
+	    trainset_size = config.getint('parameters','trainset_size')  
 
 	    dim_h_en_z_2 = config.getint('parameters','dim_h_en_z_2')
 	    dim_h_de_x_2 = config.getint('parameters','dim_h_de_x_2')
 	    dim_h_en_z_3 = config.getint('parameters','dim_h_en_z_3')
 	    dim_h_de_x_3 = config.getint('parameters','dim_h_de_x_3')
+
 	    
 	    if dim_h_en_z_2!=0:
 	    	dim_h_en_z.append(dim_h_en_z_2)
@@ -39,7 +42,7 @@ if __name__=="__main__":
 	    if dim_h_de_x_3!=0:
 	    	dim_h_de_x.append(dim_h_de_x_3) 
 
-	    return dim_h_en_z, dim_h_de_x, dim_z, L, iterations, learningRate,  polyak, batch_size
+	    return dim_h_en_z, dim_h_de_x, dim_z, L, iterations, learningRate,  polyak, batch_size, trainset_size
 
   #-------------------       		 parse config file       		--------------------
 
@@ -52,10 +55,13 @@ if __name__=="__main__":
 
 	#-------------------      		 load dataset		       		--------------------
 
-	x_all = np.load('data/NY/docwordny_matrix.npy')
-	x = x_all[:3000,:]
+	f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
+	x_all = pickle.load(f)
+	f.close()
+	
+	x = x_all[:trainset_size,:]
 	n, v = x.shape
-	x_valid = x_all[3000:,:]
+	x_valid = x_all[trainset_size:,:]
 
 	name_log = foldername + '/log.txt'
 	model = VAE.VAE(n, v, dim_h_en_z=dim_h_en_z, dim_h_de_x=dim_h_de_x, dim_z=dim_z, batch_size=batch_size,
