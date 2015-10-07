@@ -271,5 +271,5 @@ def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
 			i+=1
 			
 	f = gzip.open('data/NY/docwordny_matrix.pklz','wb')
-	pickle.dump(doc_nrs, f)
+	pickle.dump(docs, f)
 	f.close()
