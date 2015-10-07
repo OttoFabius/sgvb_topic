@@ -242,7 +242,7 @@ def convert_to_matrix(filename = 'data/KOS/docwordkos.txt'):
 		docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
 	np.save(str(filename).rsplit('.')[0] + '_matrix.npy', docs) 
 
-def convert_to_sparse(filename = 'data/NY/docwordny.txt'):
+def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
 	"""converts text file to scipy sparse matrix
 	Created for NY Times dataset.
 	text file must only contain '.' for the extension and must be structured as follows:
@@ -259,7 +259,14 @@ def convert_to_sparse(filename = 'data/NY/docwordny.txt'):
 	f.readline() #total words
 
 	docs 	= lil_matrix((n_docs, voc_size))
+	i = 0
 	for line in f:
+
 		ws = line.split()
 		docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
+		if verbose=True:
+
+			if i % 1000 == 0:
+				print i
+			i+=1
 	np.save(str(filename).rsplit('.')[0] + '_matrix.npy', docs) 
