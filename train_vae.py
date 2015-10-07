@@ -47,7 +47,7 @@ if __name__=="__main__":
   #-------------------       		 parse config file       		--------------------
 
 	foldername = "results/vae/" + sys.argv[1]
-	dim_h_en_z, dim_h_de_x, dim_z , L, iterations , learningRate, polyak, batch_size = parse_config(foldername)
+	dim_h_en_z, dim_h_de_x, dim_z , L, iterations , learningRate, polyak, batch_size, trainset_size = parse_config(foldername)
 	normalization = 'l2'
 	nonlinearity ='relu'
 	type_rec = 'poisson'
@@ -58,7 +58,7 @@ if __name__=="__main__":
 	f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
 	x_all = pickle.load(f)
 	f.close()
-	
+
 	x = x_all[:trainset_size,:]
 	n, v = x.shape
 	x_valid = x_all[trainset_size:,:]
