@@ -2,7 +2,7 @@ import gzip
 import cPickle as pickle
 import numpy as np
 import scipy.io
-from scipy.sparse import csc_matrix, csr_matrix, vstack, lil_matrix, coo_matrix
+from scipy.sparse import csc_matrix, csr_matrix, vstack, lil_matrix
 from sklearn.utils import resample
 
 
@@ -258,7 +258,7 @@ def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
 
 	f.readline() #total words
 
-	docs 	= coo_matrix((n_docs, voc_size))
+	docs 	= lil_matrix((n_docs, voc_size))
 	i = 0
 	for line in f:
 
@@ -269,4 +269,5 @@ def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
 			if i % 1000 == 0:
 				print i
 			i+=1
+			
 	np.save(str(filename).rsplit('.')[0] + '_matrix.npy', docs) 
