@@ -7,6 +7,7 @@ import time
 import scipy.sparse as sp
 import VAE, optimizer, generate_params, blocks
 from scipy.io import loadmat, savemat
+import gzip
 
 if __name__=="__main__":
 
