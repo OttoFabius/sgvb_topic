@@ -23,16 +23,19 @@ if __name__=="__main__":
 	    batch_size = config.getint('parameters','batch_size')  
 
 	    dim_h_en_z_2 = config.getint('parameters','dim_h_en_z_2')
+	    dim_h_de_x_2 = config.getint('parameters','dim_h_de_x_2')
+	    dim_h_en_z_3 = config.getint('parameters','dim_h_en_z_3')
+	    dim_h_de_x_3 = config.getint('parameters','dim_h_de_x_3')
+	    
 	    if dim_h_en_z_2!=0:
 	    	dim_h_en_z.append(dim_h_en_z_2)
-	    dim_h_de_x_2 = config.getint('parameters','dim_h_de_x_2')
+	    
 	    if dim_h_de_x_2!=0:
 	    	dim_h_de_x.append(dim_h_de_x_2) 
-
-	   	dim_h_en_z_3 = config.getint('parameters','dim_h_en_z_3')
+	   	
 	    if dim_h_en_z_3!=0:
 	    	dim_h_en_z.append(dim_h_en_z_3)
-	    dim_h_de_x_3 = config.getint('parameters','dim_h_de_x_3')
+	    
 	    if dim_h_de_x_3!=0:
 	    	dim_h_de_x.append(dim_h_de_x_3) 
 
