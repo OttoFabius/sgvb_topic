@@ -10,7 +10,7 @@ import cPickle as pickle
 
 
 class topic_model_matrix:
-    def __init__(self, voc_size, dimZ, HU_dz, HU_qx, HU_qd, learning_rate, sigmaInit, batch_size = 100):
+    def __init__(self, voc_size, dimZ, HU_dz, HU_qx, HU_qd, learning_rate, sigmaInit, batch_size, only_trainset):
         """NB dimensions of HU_qx and HU_qd have to match if they merge"""
 
         self.dimZ = dimZ
@@ -71,15 +71,15 @@ class topic_model_matrix:
 
     def createGradientFunctions(self):
         """ Defines optimization criterion and creates symbolic gradient function"""
-
+        # voc x batch
         x = th.sparse.csr_matrix(name='x', dtype=th.config.floatX)
-        d = th.sparse.csr_matrix(name='d', dtype=th.config.floatX)    #dimensions (?,1), broadcastable in 2nd dimension. Optionally a sparse matrix of (V x 1)?
+        d = th.sparse.csr_matrix(name='d', dtype=th.config.floatX)    
 
 
         seed = 20
         srng = T.shared_randomstreams.RandomStreams(seed=seed)
 
-        # log p(z|d). One layer to hidden should be fine as we have few documents
+        # log p(z|d). One or two layers to hidden should be fine as we have few documents
         H_lin = th.sparse.dot(self.params['W_dh'], d) + self.params['b_dh']
         H = H_lin * (H_lin>0.)
 
@@ -110,7 +110,7 @@ class topic_model_matrix:
 
         # define lowerbound 
         # NB need to account for including doc specific prior for every word, can in part be done by broadcasting
-        KLD = - 0.5 * self.dimZ * self.batch_size                                   \
+        KLD = - 0.5 * self.dimZ * self.batch_size                   \
             + 0.5 * T.sum(                                          \
               T.exp(logvar_q - logvar_pzd)                          \
             + T.pow((mu_q - mu_pzd), 2) / (T.exp(logvar_q))         \
@@ -120,7 +120,7 @@ class topic_model_matrix:
         recon_err_mat_sparse = x * T.log(y)
         recon_err_mat = th.sparse.dense_from_sparse(recon_err_mat_sparse)
         recon_err = T.sum(recon_err_mat)
-        lowerbound = (recon_err - KLD)/self.batch_size
+        lowerbound = (recon_err - KLD)
 
         gradients = T.grad(lowerbound, self.params.values())
 
@@ -139,7 +139,7 @@ class topic_model_matrix:
             new_m = self.b1 * gradient + (1 - self.b1) * m
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v
        
-            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-8) 
+            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20) 
 
             updates[m] = new_m
             updates[v] = new_v
@@ -147,7 +147,7 @@ class topic_model_matrix:
 
         self.update = th.function([x, d, epoch], [lowerbound, KLD, y], updates=updates)
         self.lowerbound  = th.function([x, d]  , lowerbound)
-        self.encode = th.function([x, d], mu_q, on_unused_input = 'ignore')
+
 
 
     def iterate(self, X, d, d_nrs, epoch):
@@ -175,17 +175,17 @@ class topic_model_matrix:
             #     print '='*int(50.*i/len(data_x))+'>'
             #     progress = int(50.*i/len(data_x))
 
-        return lowerbound #NB need to divide by number of words
+        return lowerbound 
 
     def save_parameters(self, path):
-        """Saves all the parameters in a way they can be retrieved later"""
+        """Saves parameters"""
         pickle.dump([name for name in self.params.keys()], open(path + "/names.pkl", "wb"))
         pickle.dump([p.get_value() for p in self.params.values()], open(path + "/params.pkl", "wb"))
         pickle.dump([m.get_value() for m in self.m.values()], open(path + "/m.pkl", "wb"))
         pickle.dump([v.get_value() for v in self.v.values()], open(path + "/v.pkl", "wb"))
 
     def load_parameters(self, path):
-        """Load the variables in a shared variable safe way"""
+        """Loads parameters, restarting training is possible afterwards"""
         names = pickle.load(open(path + "/names.pkl", "rb"))
         params = pickle.load(open(path + "/params.pkl", "rb"))
 
@@ -201,3 +201,16 @@ class topic_model_matrix:
         for name,v in zip(names,v_list): 
             self.v[name].set_value(v)
 
+    def generate_samples_2D(self, z_list):
+        """Generate words from different parts in 2D latent space using trained model with one layer output"""
+        W_zx = self.params["W_zx"].get_value()
+        b_zx = self.params["b_zx"].get_value() 
+
+        y = []
+
+        for z in z_list:
+
+            y_notnorm = 1/(1+np.exp(np.dot(W_zx, z) + b_zx.T))
+            y.append(y_notnorm / np.sum(y_notnorm, axis=1 ))
+
+        return y

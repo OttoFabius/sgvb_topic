@@ -1,8 +1,7 @@
 import numpy as np
 import theano as th
 from loadsave import load_pickle_list, load_pickle_matrix, create_pickle_matrix, create_pickle_list # , load_pickle
-from model_list import topic_model
-from model_matrix_2 import topic_model_matrix
+from linear_model_theano import topic_model_matrix
 import sys
 import ConfigParser
 import time
@@ -15,9 +14,7 @@ def parse_config():
     latent_variables = config.getint('parameters','latent_variables')
     hidden_units_pzd = config.getint('parameters','hidden_units_pzd')
     hidden_units_qx = config.getint('parameters','hidden_units_qx')
-    hidden_units_qx_2 = config.getint('parameters','hidden_units_qx_2')  
     hidden_units_qd = config.getint('parameters','hidden_units_qd')
-    hidden_units_zx = config.getint('parameters','hidden_units_zx')
     learning_rate = config.getfloat('parameters','learning_rate')
     sigmaInit = config.getfloat('parameters','sigmaInit')
     doc_per_doc = config.getboolean('parameters','doc_per_doc')
@@ -25,7 +22,7 @@ def parse_config():
     only_trainset = config.getboolean('parameters','only_trainset')
 
 
-    return latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qx_2, hidden_units_qd, hidden_units_zx, learning_rate, sigmaInit, doc_per_doc, batch_size, only_trainset
+    return latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qd, learning_rate, sigmaInit, doc_per_doc, batch_size, only_trainset
 
 
 
@@ -40,7 +37,7 @@ if __name__=="__main__":
 
     #-------------------       		 parse config file       		--------------------
 
-    latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qx_2, hidden_units_qd, hidden_units_zx, \
+    latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qd, \
     learning_rate, sigmaInit, doc_per_doc, batch_size, only_trainset = parse_config()
 
     #	----------------				load dataset & create model 	   --------------------
@@ -64,7 +61,7 @@ if __name__=="__main__":
             d_nrs_test = np.ndarray.flatten(d_nrs_test)
         voc_size = d.shape[1]    
         print "initializing model + graph..."
-        model = topic_model_matrix(voc_size, latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qx_2, hidden_units_qd, hidden_units_zx, learning_rate, sigmaInit, batch_size, only_trainset)
+        model = topic_model_matrix(voc_size, latent_variables, hidden_units_pzd, hidden_units_qx, hidden_units_qd, learning_rate, sigmaInit, batch_size, only_trainset)
     print 'done'
 
     #	----------------		optional: load parameters           --------------------

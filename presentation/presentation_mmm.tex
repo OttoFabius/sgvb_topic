@@ -2,9 +2,9 @@
 
 \mode<presentation> {
 
-%\usetheme{default}
-\usetheme{Rochester}
-\usecolortheme{lily}
+\usetheme{default}
+%\usetheme{Rochester}
+%\usecolortheme{lily}
 
 \setbeamertemplate{footline}[page number] 
 \beamertemplatenavigationsymbolsempty
@@ -57,8 +57,17 @@ Co-Supervisors: M. Welling, D.P. Kingma
 %	PRESENTATION SLIDES
 %----------------------------------------------------------------------------------------
 
-\section{LDA}
+\begin{frame}
+\frametitle{Intro}
+\begin{itemize}
+\item{Latent Dirichlet Allocation\footnote{Blei, David M., Andrew Y. Ng, and Michael I. Jordan. "Latent dirichlet allocation." the Journal of machine Learning research 3 (2003): 993-1022.} is a widely used method for topic modelling}
+\item{LDA performs inference over the distribution of topics underlying a document}
+\item{Recent advances in large-scale inference methods enable similar, yet more powerful models}
+\end{itemize}
 
+\end{frame}
+
+\section{LDA}
 
 \begin{frame}
 \frametitle{Latent Dirichlet Allocation (LDA)}
@@ -91,11 +100,11 @@ Co-Supervisors: M. Welling, D.P. Kingma
 
 
 - Generative model\\
-- Dirichlet priors\\ 
-- $\theta^i$ and $z^{(ik)}$ model topic,\\
-\hspace{5mm} both multinomials \\
-- $z^{(ik)}$ drawn from $\theta^{(i)}$,\\
-\hspace{1.6mm} $x^{(ik)}$ drawn from $z^{(ik)}$\\
+- Dirichlet prior on $\theta$\\ 
+- $p(z^{(ik)}) = \text{Mult}(\theta)$ \\
+- $p(x^{(ik)}|z^{(ik)}) = \text{Mult}(\beta)$\\ 
+- Used to infer a distribution over topics $z$, \\
+\hspace{1.6mm} given a document.
 \vspace{70mm}
 \end{frame}
 
@@ -131,19 +140,84 @@ Co-Supervisors: M. Welling, D.P. Kingma
 \label{sgvb_topic}
 \end{wrapfigure}
 
-
-- Similar (also generative) Graphical model\\
-- Uses SGVB \\ 
-- Dependencies can be (powerful) deep nets \\
-- $z^{(ik)}$ models topic \textit{distribution} \\
-- Replacing the restrictive Multinomial \\
-\hspace{2mm} distributions in LDA with \\
-\hspace{2mm} (deep) neural nets makes this \\
-\hspace{2mm} model more powerful, especially \\
-\hspace{2mm} in conjunction with large datasets.
-\vspace{70mm}
+- Similar Graphical Model \\
+- Uses SGVB: A scalable stochastic \\
+\hspace{5mm} gradient optimization method for \\
+\hspace{5mm} inference.\footnote{Kingma, D. P. and Welling, M. Auto-encoding variational
+Bayes. Proceedings of the International Conference on
+Learning Representations (ICLR), 2014.}
+\vspace{100mm}
 \end{frame}
 
+\begin{frame}{}
+\frametitle{LDA and SGVB Topic Model}
+\begin{minipage}[r]{0.45\textwidth}
+\centering
+    \begin{tikzpicture}[node distance = 1.5cm]
+        \node[obs] (x) {$x^{(ik)}$}; 
 
+        \node[latent, above=of x] (z) {$z^{(ik)}$}; 
+        
+        \node[obs, above=of z] (d) {$\theta^{(i)}$}; 
 
+        \node[const, right=of d] (a) {$\alpha$} ;
+        \node[const, right=of z] (th) {$\beta$} ;
+		
+		\edge {a} {d};
+        \edge {z} {x};
+        \edge {d} {z};
+        \edge {th} {x};
+
+		
+		\plate {xz} {(x)(z)} {$k = 1...K$};
+        \plate {xzd} {(x)(z)(d)(xz)} {$i = 1...N$};
+	  
+    \end{tikzpicture}
+\end{minipage}%
+\begin{minipage}{0.50\textwidth}
+    \begin{tikzpicture}[node distance = 1.5cm]
+        \node[obs] (x) {$x^{(ik)}$}; 
+
+        \node[latent, above=of x] (z) {$z^{(ik)}$}; 
+        
+        \node[obs, above=of z] (d) {$d^{(i)}$}; 
+
+        \node[const, right=of z] (th) {$\theta$} ;
+        \node[const, left=of z] (ph) {$\phi$};
+
+        \edge {z} {x};
+        \edge {d} {z};
+        \edge {th} {z};
+        \edge {th} {x};
+
+        \edge [dashed] {ph} {z}
+        \edge [dashed,bend right] {d} {z}
+        \edge [dashed,bend left] {x} {z}
+		
+		\plate {xz} {(x)(z)} {$k = 1...K$};
+        \plate {xzd} {(x)(z)(d)(xz)} {$i = 1...N$};
+
+    \end{tikzpicture}
+\end{minipage}
+
+\vspace{5mm}
+
+\hspace{15mm} LDA \hspace{25mm} SGVB Topic Model
+\end{frame}
+
+\begin{frame}
+\frametitle{Advantages of SGVB Topic model}
+Main advantage: The dependencies can be (powerful) deep nets. \\ \vspace{5mm}
+This avoids the restictions of the Multinomial dependencies of LDA. The power deep learning allows it to make full use of large amounts of data.
+\end{frame}
+
+\begin{frame}
+\frametitle{Preliminary Results}
+\vspace{-2mm}
+\begin{figure}
+\includegraphics[scale=0.3]{superkutte_visualisatie.png}
+\vspace{-12mm}
+\caption{The inferred latent representation Z of documents models the topic distribution. This figure shows some frequent words for 4 regions in latent space for an SGVB Topic model with 2 latent dimensions, trained on the KOS blog posts dataset\footnote{Lichman, M. (2013). UCI Machine Learning Repository [http://archive.ics.uci.edu/ml]. Irvine, CA: University of California, School of Information and Computer Science.}}
+\end{figure}
+\end{frame}
 \end{document}

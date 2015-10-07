@@ -10,12 +10,13 @@ import cPickle as pickle
 
 
 class topic_model:
-    def __init__(self, voc_size, dimZ, HU_dz, HU_qx, HU_qd, learning_rate, sigmaInit, L=1):
-        """NB dimensions of HU_qx and HU_qd have to match if they merge"""
+    def __init__(self, voc_size, dimZ, HU_dz, HU_qx, HU_qd, learning_rate, sigmaInit):
+        """NB dimensions of HU_qx and HU_qd have to match if they merge
+        This version is deprecated, use model_matrix!"""
+
 
         self.dimZ = dimZ
         self.learning_rate = th.shared(learning_rate)
-        self.L = L
 
         # define number of hidden units in each hidden layer if hidden layers exist
 
@@ -99,12 +100,6 @@ class topic_model:
 
         eps = srng.normal((self.dimZ, doc_size), avg = 0.0, std = 1.0, dtype=theano.config.floatX)
         z = mu_q+ T.exp(0.5*logvar_q)*eps
-
-        # if self.L != 1:
-        #     for i in xrange(1,self.L):
-        #         eps = srng.normal((self.dimZ, doc_size), avg = 0.0, std = 1.0, dtype=theano.config.floatX)
-        #         z += mu_q + T.exp(0.5*logvar_q)*eps
-        #     z = z/self.L
             
         y_lin = T.dot(self.params['W_zx'], z) + self.params['b_zx']
         y = T.nnet.softmax(y_lin.T).T # use custom version if the dimensions are flipped?
@@ -167,7 +162,7 @@ class topic_model:
             print '--------------------------------------------------'
             # print np.sum(y, axis = 0)
             # print y.shape
-            # raw_input()
+            # raw_input()   
             # print x
             error_terms = errs[errs !=0]
             for p in self.params.values():

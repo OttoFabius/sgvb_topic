@@ -10,7 +10,7 @@ import cPickle as pickle
 
 
 class topic_model_matrix:
-    def __init__(self, voc_size, dimZ, HU_dz, HU_qx, HU_qx_2, HU_qd, HU_zx, learning_rate, sigmaInit, batch_size, only_trainset):
+    def __init__(self, voc_size, dimZ, HU_dz, HU_qx, HU_qd, learning_rate, sigmaInit, batch_size, only_trainset):
         """NB dimensions of HU_qx and HU_qd have to match if they merge"""
 
         self.dimZ = dimZ
@@ -23,42 +23,34 @@ class topic_model_matrix:
 
         # initialize weights, biases
 
-        W_dh     = th.shared(np.random.normal(0,sigmaInit,(HU_dz   , voc_size)).astype(th.config.floatX), name = 'W_dh')
-        b_dh     = th.shared(np.random.normal(0,sigmaInit,(HU_dz   , 1       )).astype(th.config.floatX), name = 'b_dh',    broadcastable=(False,True))
+        W_dh = th.shared(np.random.normal(0,sigmaInit,(HU_dz, voc_size)).astype(th.config.floatX), name = 'W_dh')
+        b_dh = th.shared(np.random.normal(0,sigmaInit,(HU_dz,1)).astype(th.config.floatX), name = 'b_dh', broadcastable=(False,True))
 
-        W_d_mu   = th.shared(np.random.normal(0,sigmaInit,(dimZ    , HU_dz   )).astype(th.config.floatX), name = 'W_d_mu')
-        b_d_mu   = th.shared(np.random.normal(0,sigmaInit,(dimZ    , 1       )).astype(th.config.floatX), name = 'b_d_mu',  broadcastable=(False,True))
+        W_d_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,HU_dz)).astype(th.config.floatX), name = 'W_d_mu')
+        b_d_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'b_d_mu', broadcastable=(False,True))
 
-        W_d_var  = th.shared(np.random.normal(0,sigmaInit,(dimZ    , HU_dz   )).astype(th.config.floatX), name = 'W_d_var')
-        b_d_var  = th.shared(np.random.normal(0,sigmaInit,(dimZ    , 1       )).astype(th.config.floatX), name = 'b_d_var', broadcastable=(False,True))
+        W_d_var = th.shared(np.random.normal(0,sigmaInit,(dimZ, HU_dz)).astype(th.config.floatX), name = 'W_d_var')
+        b_d_var = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'b_d_var', broadcastable=(False,True))
 
-        W_zx     = th.shared(np.random.normal(0,sigmaInit,(HU_zx   , dimZ    )).astype(th.config.floatX), name = 'W_zx')
-        b_zx     = th.shared(np.random.normal(0,sigmaInit,(HU_zx   , 1       )).astype(th.config.floatX), name = 'b_zx',    broadcastable=(False,True))
+        W_zx = th.shared(np.random.normal(0,sigmaInit,(voc_size, dimZ)).astype(th.config.floatX), name = 'W_zx')
+        b_zx = th.shared(np.random.normal(0,sigmaInit,(voc_size,1)).astype(th.config.floatX), name = 'b_zx', broadcastable=(False,True))
 
-        W_zx_2   = th.shared(np.random.normal(0,sigmaInit,(voc_size, HU_zx   )).astype(th.config.floatX), name = 'W_zx_2')
-        b_zx_2   = th.shared(np.random.normal(0,sigmaInit,(voc_size, 1       )).astype(th.config.floatX), name = 'b_zx_2',  broadcastable=(False,True))
+        W_xz_q = th.shared(np.random.normal(0,sigmaInit,(HU_qx, voc_size)).astype(th.config.floatX), name = 'W_xz_q')
+        b_xz_q = th.shared(np.random.normal(0,sigmaInit,(HU_qx,1)).astype(th.config.floatX), name = 'b_xz_q', broadcastable=(False,True))
 
-        W_xz_q   = th.shared(np.random.normal(0,sigmaInit,(HU_qx   , voc_size)).astype(th.config.floatX), name = 'W_xz_q')
-        b_xz_q   = th.shared(np.random.normal(0,sigmaInit,(HU_qx   , 1       )).astype(th.config.floatX), name = 'b_xz_q',  broadcastable=(False,True))
+        W_dz_q = th.shared(np.random.normal(0,sigmaInit,(HU_qd, voc_size)).astype(th.config.floatX), name = 'W_dz_q')
+        b_dz_q = th.shared(np.random.normal(0,sigmaInit,(HU_qd,1)).astype(th.config.floatX), name = 'b_dz_q', broadcastable=(False,True))
 
-        W_xz_q_2 = th.shared(np.random.normal(0,sigmaInit,(HU_qx_2 , HU_qx   )).astype(th.config.floatX), name = 'W_xz_q_2')
-        b_xz_q_2 = th.shared(np.random.normal(0,sigmaInit,(HU_qx_2 , 1       )).astype(th.config.floatX), name = 'b_xz_q_2',broadcastable=(False,True))
+        W_q_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,HU_qd)).astype(th.config.floatX), name = 'W_q_mu')
+        b_q_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'b_q_mu', broadcastable=(False,True))
 
-        W_dz_q   = th.shared(np.random.normal(0,sigmaInit,(HU_qd   , voc_size)).astype(th.config.floatX), name = 'W_dz_q')
-        b_dz_q   = th.shared(np.random.normal(0,sigmaInit,(HU_qd   , 1       )).astype(th.config.floatX), name = 'b_dz_q',  broadcastable=(False,True))
-        
-        W_q_mu   = th.shared(np.random.normal(0,sigmaInit,(dimZ    , HU_qd   )).astype(th.config.floatX), name = 'W_q_mu')
-        b_q_mu   = th.shared(np.random.normal(0,sigmaInit,(dimZ    , 1       )).astype(th.config.floatX), name = 'b_q_mu',  broadcastable=(False,True))
+        W_q_var = th.shared(np.random.normal(0,sigmaInit,(dimZ, HU_qd)).astype(th.config.floatX), name = 'W_q_var')
+        b_q_var = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'b_q_var', broadcastable=(False,True))
 
-        W_q_var  = th.shared(np.random.normal(0,sigmaInit,(dimZ    , HU_qd   )).astype(th.config.floatX), name = 'W_q_var')
-        b_q_var  = th.shared(np.random.normal(0,sigmaInit,(dimZ    , 1       )).astype(th.config.floatX), name = 'b_q_var', broadcastable=(False,True))
-
-        self.params = OrderedDict([ \
-            ('W_dh', W_dh),         ('b_dh', b_dh),         ('W_d_mu', W_d_mu),   ('b_d_mu', b_d_mu),  \
-            ('W_d_var', W_d_var),   ('b_d_var', b_d_var),   ('W_zx', W_zx),       ('b_zx', b_zx),  \
-            ('W_zx_2', W_zx_2),     ('b_zx_2', b_zx_2),     ('W_xz_q', W_xz_q),   ('b_xz_q', b_xz_q), \
-            ('W_xz_q_2', W_xz_q_2), ('b_xz_q_2', b_xz_q_2), ('W_dz_q', W_dz_q),   ('b_dz_q', b_dz_q), \
-            ('W_q_mu', W_q_mu),     ('b_q_mu', b_q_mu),     ('W_q_var', W_q_var), ('b_q_var', b_q_var)])
+        self.params = OrderedDict([('W_dh', W_dh), ('b_dh', b_dh), ('W_d_mu', W_d_mu), ('b_d_mu', b_d_mu),  \
+            ('W_d_var', W_d_var), ('b_d_var', b_d_var), ('W_zx', W_zx), ('b_zx', b_zx),  \
+            ('W_xz_q', W_xz_q), ('b_xz_q', b_xz_q), ('W_dz_q', W_dz_q), ('b_dz_q', b_dz_q), \
+            ('W_q_mu', W_q_mu), ('b_q_mu', b_q_mu), ('W_q_var', W_q_var), ('b_q_var', b_q_var)])
 
         # Adam
         self.b1 = 0.05
@@ -87,23 +79,19 @@ class topic_model_matrix:
         seed = 20
         srng = T.shared_randomstreams.RandomStreams(seed=seed)
 
-        # log p(z|d). One layer to hidden should be fine as we have few documents
-        H_lin = th.sparse.dot(self.params['W_dh'], d) + self.params['b_dh']
-        H = H_lin * (H_lin>0.)
+        # log p(z|d). One or two layers to hidden should be fine as we have few documents
+        H = th.sparse.dot(self.params['W_dh'], d) + self.params['b_dh']
 
         mu_pzd  = T.dot(self.params['W_d_mu'], H)  + self.params['b_d_mu']
         logvar_pzd = T.dot(self.params['W_d_var'], H) + self.params['b_d_var']
 
         # Encoder
         # Should probably add extra hidden layer for x->z at some point because of the large amount of data x
-        H_dz_lin   = th.sparse.dot(self.params['W_dz_q'],   d) + self.params['b_dz_q'  ]
-        H_xz_lin   = th.sparse.dot(self.params['W_xz_q'],   x) + self.params['b_xz_q'  ]
-        H_xz = H_xz_lin * (H_xz_lin > 0) 
-        H_xz_lin_2 = T.dot(self.params['W_xz_q_2'], H_xz) + self.params['b_xz_q_2']
+        H_dz_lin = th.sparse.dot(self.params['W_dz_q'], d) + self.params['b_dz_q']
+        H_xz_lin = th.sparse.dot(self.params['W_xz_q'], x) + self.params['b_xz_q']
 
-        H_q_lin = H_dz_lin + H_xz_lin_2
-        H_q = H_q_lin * (H_q_lin > 0) 
-
+        H_q = H_dz_lin + H_xz_lin
+ 
 
         mu_q = T.dot(self.params['W_q_mu'], H_q) + self.params['b_q_mu']
         logvar_q = T.dot(self.params['W_q_var'], H_q) + self.params['b_q_var']
@@ -111,15 +99,17 @@ class topic_model_matrix:
         eps = srng.normal((self.dimZ, self.batch_size), avg = 0.0, std = 1.0, dtype=theano.config.floatX)
         z = mu_q + T.exp(0.5*logvar_q)*eps
 
-        H_zx_lin = T.dot(self.params['W_zx'], z) + self.params['b_zx']
-        H_zx = H_zx_lin * (H_zx_lin > 0)
 
-        y_notnorm = T.nnet.sigmoid(T.dot(self.params['W_zx_2'], H_zx) + self.params['b_zx_2'])
+
+
+
+
+        y_notnorm = T.nnet.sigmoid(T.dot(self.params['W_zx'], z) + self.params['b_zx'])
         y = y_notnorm / T.sum(y_notnorm, axis=0).reshape((1,y_notnorm.shape[1]))
 
         # define lowerbound 
         # NB need to account for including doc specific prior for every word, can in part be done by broadcasting
-        KLD = - 0.5 * self.dimZ * self.batch_size                                   \
+        KLD = - 0.5 * self.dimZ * self.batch_size                   \
             + 0.5 * T.sum(                                          \
               T.exp(logvar_q - logvar_pzd)                          \
             + T.pow((mu_q - mu_pzd), 2) / (T.exp(logvar_q))         \
@@ -178,12 +168,8 @@ class topic_model_matrix:
             d_nrs_batch = d_nrs[batches[i]:batches[i+1]]-1
 
             d_batch = d[d_nrs_batch,:] #d_nrs is a nested list
-            lowerbound_batch, KLD, y = self.update(X_batch.T, d_batch.T, epoch)
-            lowerbound += lowerbound_batch
-            print "------------------", "lowerbound_batch/self.batch_size","------------------"
-
-            for values in self.params.values():
-                print np.linalg.norm(values.get_value())
+            lowerbound_document, KLD, y = self.update(X_batch.T, d_batch.T, epoch)
+            lowerbound += lowerbound_document
             # if progress != int(50.*i/len(data_x)):
             #     print '='*int(50.*i/len(data_x))+'>'
             #     progress = int(50.*i/len(data_x))
@@ -225,4 +211,5 @@ class topic_model_matrix:
 
             y_notnorm = 1/(1+np.exp(np.dot(W_zx, z) + b_zx.T))
             y.append(y_notnorm / np.sum(y_notnorm, axis=1 ))
+
         return y

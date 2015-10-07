@@ -1,2 +1,2 @@
 \beamer@endinputifotherversion {3.33pt}
-\beamer@sectionintoc {1}{LDA}{2}{0}{1}
+\beamer@sectionintoc {1}{LDA}{3}{0}{1}
