@@ -264,7 +264,7 @@ def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
 
 		ws = line.split()
 		docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
-		if verbose=True:
+		if verbose==True:
 
 			if i % 1000 == 0:
 				print i
