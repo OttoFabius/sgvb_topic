@@ -281,7 +281,7 @@ def select_features(mincount=100):
 	f.close()
 
 	data_csr = csr_matrix(data)
-	row_indices = np.ndarray.flatten(np.array(np.nonzero(data_csr.sum(1)>mincount)[0]))
+	row_indices = np.ndarray.flatten(np.array(np.nonzero(data_csr.sum(0)>mincount)[0]))
 	data_pruned = data_csr[row_indices,:]
 
 	data_pruned_lil = lil_matrix(data_pruned)
