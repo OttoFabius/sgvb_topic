@@ -62,10 +62,12 @@ if __name__=="__main__":
 	f = gzip.open('data/NY/docwordny_matrix_100.pklz','rb')
 	x_all = pickle.load(f)
 	f.close()
-	x_all=x_all.T
+
+
 	x = x_all[:trainset_size,:]
 	x = csr_matrix(x)
 	n, v = x.shape
+	print "number of datapoints: ", n, "number of features: ", v 
 	x_valid = x_all[trainset_size:,:]
 	x_valid = csr_matrix(x_valid)
 
