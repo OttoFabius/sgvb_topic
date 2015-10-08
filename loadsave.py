@@ -279,10 +279,10 @@ def select_features(mincount=100):
 	f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
 	data = pickle.load(f)
 	f.close()
-
+	print "old shape", data.shape
 	data_csr = csr_matrix(data)
 	row_indices = np.ndarray.flatten(np.array(np.nonzero(data_csr.sum(0)>mincount)[0]))
-	data_pruned = data_csr[row_indices,:]
+	data_pruned = data_csr[:,row_indices]
 
 	data_pruned_lil = lil_matrix(data_pruned)
 
