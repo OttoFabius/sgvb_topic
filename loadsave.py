@@ -242,7 +242,7 @@ def convert_to_matrix(filename = 'data/KOS/docwordkos.txt'):
 		docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
 	np.save(str(filename).rsplit('.')[0] + '_matrix.npy', docs) 
 
-def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
+def convert_to_sparse(filename = 'data/KOS/docwordkos.txt', verbose=False):
 	"""converts text file to scipy sparse matrix
 	Created for NY Times dataset.
 	text file must only contain '.' for the extension and must be structured as follows:
@@ -270,6 +270,22 @@ def convert_to_sparse(filename = 'data/NY/docwordny.txt', verbose=False):
 				print i
 			i+=1
 			
-	f = gzip.open('data/NY/docwordny_matrix.pklz','wb')
+	f = gzip.open('data/KOS/docwordkos_matrix.pklz','wb')
 	pickle.dump(docs, f)
+	f.close()
+
+def select_features(mincount=100):
+
+	f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+	data = pickle.load(f)
+	f.close()
+
+	data_csr = csr_matrix(data)
+	row_indices = np.ndarray.flatten(np.array(np.nonzero(data_csr.sum(1)>mincount)[0]))
+	data_pruned = data_csr[row_indices,:]
+
+	data_pruned_lil = lil_matrix(data_pruned)
+
+	f = gzip.open('data/KOS/docwordkos_matrix_' + str(mincount) + '.pklz','wb')
+	pickle.dump(data_pruned_lil, f)
 	f.close()

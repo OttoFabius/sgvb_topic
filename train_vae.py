@@ -9,6 +9,7 @@ import VAE, optimizer, generate_params, blocks
 from scipy.io import loadmat, savemat
 import gzip
 import cPickle as pickle
+from scipy.sparse import csc_matrix, csr_matrix
 
 if __name__=="__main__":
 
@@ -25,6 +26,7 @@ if __name__=="__main__":
 	    polyak = config.getboolean('parameters','polyak')
 	    batch_size = config.getint('parameters','batch_size')  
 	    trainset_size = config.getint('parameters','trainset_size')  
+	    sparse = config.getboolean('parameters','sparse')
 
 	    dim_h_en_z_2 = config.getint('parameters','dim_h_en_z_2')
 	    dim_h_de_x_2 = config.getint('parameters','dim_h_de_x_2')
@@ -44,12 +46,12 @@ if __name__=="__main__":
 	    if dim_h_de_x_3!=0:
 	    	dim_h_de_x.append(dim_h_de_x_3) 
 
-	    return dim_h_en_z, dim_h_de_x, dim_z, L, iterations, learningRate,  polyak, batch_size, trainset_size
+	    return dim_h_en_z, dim_h_de_x, dim_z, L, iterations, learningRate,  polyak, batch_size, trainset_size, sparse
 
   #-------------------       		 parse config file       		--------------------
 
 	foldername = "results/vae/" + sys.argv[1]
-	dim_h_en_z, dim_h_de_x, dim_z , L, iterations , learningRate, polyak, batch_size, trainset_size = parse_config(foldername)
+	dim_h_en_z, dim_h_de_x, dim_z , L, iterations , learningRate, polyak, batch_size, trainset_size, sparse = parse_config(foldername)
 	normalization = 'l2'
 	nonlinearity ='relu'
 	type_rec = 'poisson'
@@ -57,18 +59,20 @@ if __name__=="__main__":
 
 	#-------------------      		 load dataset		       		--------------------
 
-	f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
+	f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
 	x_all = pickle.load(f)
 	f.close()
 
 	x = x_all[:trainset_size,:]
+	x = csr_matrix(x)
 	n, v = x.shape
 	x_valid = x_all[trainset_size:,:]
+	x_valid = csr_matrix(x_valid)
 
 	name_log = foldername + '/log.txt'
 	model = VAE.VAE(n, v, dim_h_en_z=dim_h_en_z, dim_h_de_x=dim_h_de_x, dim_z=dim_z, batch_size=batch_size,
                 nonlinearity=nonlinearity, normalization=normalization, L=L,
                 type_rec=type_rec, type_latent=type_latent, iterations=iterations, learningRate=learningRate, 
-                polyak=polyak, name_log=name_log, seed=12345)
+                polyak=polyak, name_log=name_log, seed=12345, sparse=sparse)
 	model.fit(x, x_valid)
 

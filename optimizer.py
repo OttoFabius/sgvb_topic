@@ -3,6 +3,7 @@ import theano.tensor as T
 import numpy as np
 from collections import OrderedDict
 import sys
+import time
 
 
 """
@@ -38,10 +39,9 @@ class BaseOptimizer(object):
         batches = np.arange(0, data[0].shape[0], self.batch_size)
         lb = 0
         for j in xrange(len(batches) - 1):
-            start = time.time()
+
             inp = [d[batches[j]:batches[j + 1]]
-                   if d.shape[0] > 0 else d for d in data].toarray()
-            print "conversion took ", time.time() - start
+                   if d.shape[0] > 0 else d for d in data]
             objectives = np.array(self.ascent(*inp))
             if np.isnan(objectives).any():
                 print lb

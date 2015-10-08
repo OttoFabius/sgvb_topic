@@ -47,7 +47,7 @@ class VAE(object):
                 nonlinearity='softplus', normalization='l2', regularization='l2', L=1,
                 type_rec='poisson', type_latent='gaussian', iterations=100, constrain_means=False,
                 dropout_rate=0., weight_decay=None, learningRate=0.01, mode='FAST_RUN',
-                algo_optim='adam', polyak=False, beta3=0.1, name_log='log_vae.txt', seed=12345, save_params=False):
+                algo_optim='adam', polyak=False, beta3=0.1, name_log='log_vae.txt', seed=12345, save_params=False, sparse=False):
         self.dim_x = dim_x
         self.dim_h_en_z = dim_h_en_z
         self.dim_h_de_x = dim_h_de_x
@@ -59,6 +59,7 @@ class VAE(object):
         self.learningRate = learningRate
         self.normed = False
         self.save_params = save_params
+        self.sparse=sparse
         if self.normalization is not None:
             self.normed = True
         if weight_decay is None:
@@ -168,11 +169,11 @@ class VAE(object):
         Specify the objective function
         """
         # for the encoder
-        x = T.matrix('x')
+        x = theano.sparse.csr_matrix('x')
 
         # construct the objective function
-        enp_z = self.encoder_z.transform([x])
-        enpinf_z = self.encoder_z_inf.transform([x], inference=True)  # for test time
+        enp_z = self.encoder_z.transform([x], sparse=self.sparse)
+        enpinf_z = self.encoder_z_inf.transform([x], inference=True, sparse=self.sparse)  # for test time
 
         rec_x, rec_x_inf = 0, 0
         for i in xrange(self.L):

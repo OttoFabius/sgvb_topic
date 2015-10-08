@@ -1,6 +1,8 @@
 import theano
 import theano.tensor as T
 import numpy as np
+import theano.sparse
+import scipy as sp
 
 
 """
@@ -72,7 +74,7 @@ class MLP(object):
         if normalization is not None:
             self.normalize = normalizations[normalization]
 
-    def ff_inputs(self, inputs, input_params=None, inference=False):
+    def ff_inputs(self, inputs, input_params=None, inference=False, sparse=False, i=0):
         """
         Feedforward just the inputs
         """
@@ -82,6 +84,7 @@ class MLP(object):
         lin_dot = T.as_tensor_variable(0)
         drop_rate = max(0., self.dropout_rate - 0.3)
         for inp, params in zip(inputs, input_params[:-1]):
+            
             W = self.normalize(
                 params[0]) * T.exp(params[1]) if len(params) > 1 else params[0]
             if drop_rate > 0:
@@ -90,7 +93,11 @@ class MLP(object):
                                         p=(1. - drop_rate)).astype(theano.config.floatX)
                 else:
                     inp *= (1. - drop_rate)
-            lin_dot += T.dot(inp, W)
+
+            if sparse & i==1:
+                lin_dot += theano.sparse.basic.structured_dot(inp, W)
+            else:
+                lin_dot +=T.dot(inp, W)
 
         # add the bias
         lin_dot += input_params[-1][0]
@@ -124,11 +131,11 @@ class MLP(object):
         # return output
         return h
 
-    def ff(self, inputs, inference=False):
+    def ff(self, inputs, inference=False, sparse=False):
         """
         Wrapper for the full feedforward process
         """
-        h = self.ff_inputs(inputs, inference=inference)
+        h = self.ff_inputs(inputs, inference=inference, sparse=sparse)
         h2 = self.ff_hidden_layers(h, inference=inference)
         return h2
 
@@ -151,9 +158,9 @@ class DiagGaussianEncoder(MLP):
         self.prior_mu = prior_mu
         self.prior_sg = prior_sg
 
-    def transform(self, inputs, constrain_means=False, inference=False):
+    def transform(self, inputs, constrain_means=False, inference=False, sparse=False):
         # ff from the deterministic MLP
-        hf = self.ff(inputs, inference=inference)
+        hf = self.ff(inputs, inference=inference, sparse=sparse)
         hout = hf[-1]
         if self.dropout_rate > 0:
             if inference:
