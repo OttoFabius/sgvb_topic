@@ -62,7 +62,7 @@ if __name__=="__main__":
 	f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
 	x_all = pickle.load(f)
 	f.close()
-
+	x_all=x_all.T
 	x = x_all[:trainset_size,:]
 	x = csr_matrix(x)
 	n, v = x.shape

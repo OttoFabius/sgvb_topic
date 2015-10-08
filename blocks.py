@@ -84,7 +84,7 @@ class MLP(object):
         lin_dot = T.as_tensor_variable(0)
         drop_rate = max(0., self.dropout_rate - 0.3)
         for inp, params in zip(inputs, input_params[:-1]):
-            
+            i +=1
             W = self.normalize(
                 params[0]) * T.exp(params[1]) if len(params) > 1 else params[0]
             if drop_rate > 0:
@@ -95,7 +95,7 @@ class MLP(object):
                     inp *= (1. - drop_rate)
 
             if sparse & i==1:
-                lin_dot += theano.sparse.basic.structured_dot(inp, W)
+                lin_dot += theano.sparse.basic.dot(inp, W)
             else:
                 lin_dot +=T.dot(inp, W)
 
