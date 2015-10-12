@@ -275,10 +275,13 @@ def convert_to_sparse(filename = 'data/KOS/docwordkos.txt', verbose=False):
 	pickle.dump(docs, f)
 	f.close()
 
-def select_features(mincount=100):
+def select_features(mincount=100, dataset='NY'):
 	start = time.time()
 	print"loading pickled data"
-	f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+	if dataset=='NY':
+		f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
+	else if dataset=='KOS':
+		f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
 	data = pickle.load(f)
 	f.close()
 	print "done"
@@ -294,8 +297,10 @@ def select_features(mincount=100):
 	print "c"
 	data_pruned_lil = lil_matrix(data_pruned)
 	print "d"
-
-	f = gzip.open('data/KOS/docwordkos_matrix_' + str(mincount) + '.pklz','wb')
+	if dataset=='NY':
+		f = gzip.open('data/NY/docwordny_matrix_' + str(mincount) + '.pklz','wb')
+	else if dataset == 'KOS':
+		f = gzip.open('data/KOS/docwordkos_matrix_' + str(mincount) + '.pklz','wb')
 	pickle.dump(data_pruned_lil, f)
 	f.close()
 
