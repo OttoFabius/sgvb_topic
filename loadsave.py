@@ -4,6 +4,7 @@ import numpy as np
 import scipy.io
 from scipy.sparse import csc_matrix, csr_matrix, vstack, lil_matrix
 from sklearn.utils import resample
+import time
 
 
 def load_pickle_list(filename = "_train_list.pklz"):
@@ -275,19 +276,26 @@ def convert_to_sparse(filename = 'data/KOS/docwordkos.txt', verbose=False):
 	f.close()
 
 def select_features(mincount=100):
-
-	f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
+	start = time.time()
+	print"loading pickled data"
+	f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
 	data = pickle.load(f)
 	f.close()
+	print "done"
 	print "old shape", data.shape
+	print "converting to csr"
 	data_csr = csr_matrix(data)
-	row_indices = np.ndarray.flatten(np.array(np.nonzero(data_csr.sum(0)>mincount)[0]))
+	data_csr.sum(0)
+	print "done"
+	print "a"
+	row_indices = np.ndarray.flatten(np.array(np.nonzero(data_csr.sum(0)>mincount)[1]))
+	print "b"
 	data_pruned = data_csr[:,row_indices]
-
+	print "c"
 	data_pruned_lil = lil_matrix(data_pruned)
+	print "d"
 
-
-	f = gzip.open('data/NY/docwordny_matrix_' + str(mincount) + '.pklz','wb')
+	f = gzip.open('data/KOS/docwordkos_matrix_' + str(mincount) + '.pklz','wb')
 	pickle.dump(data_pruned_lil, f)
 	f.close()
 
