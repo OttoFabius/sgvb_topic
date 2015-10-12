@@ -280,7 +280,7 @@ def select_features(mincount=100, dataset='NY'):
 	print"loading pickled data"
 	if dataset=='NY':
 		f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
-	else if dataset=='KOS':
+	elif dataset=='KOS':
 		f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
 	data = pickle.load(f)
 	f.close()
@@ -299,7 +299,7 @@ def select_features(mincount=100, dataset='NY'):
 	print "d"
 	if dataset=='NY':
 		f = gzip.open('data/NY/docwordny_matrix_' + str(mincount) + '.pklz','wb')
-	else if dataset == 'KOS':
+	elif dataset == 'KOS':
 		f = gzip.open('data/KOS/docwordkos_matrix_' + str(mincount) + '.pklz','wb')
 	pickle.dump(data_pruned_lil, f)
 	f.close()
