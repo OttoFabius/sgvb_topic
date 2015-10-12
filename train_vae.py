@@ -27,6 +27,7 @@ if __name__=="__main__":
 	    batch_size = config.getint('parameters','batch_size')  
 	    trainset_size = config.getint('parameters','trainset_size')  
 	    sparse = config.getboolean('parameters','sparse')
+	    mincount = config.getint('parameters','mincount')  
 
 	    dim_h_en_z_2 = config.getint('parameters','dim_h_en_z_2')
 	    dim_h_de_x_2 = config.getint('parameters','dim_h_de_x_2')
@@ -46,12 +47,12 @@ if __name__=="__main__":
 	    if dim_h_de_x_3!=0:
 	    	dim_h_de_x.append(dim_h_de_x_3) 
 
-	    return dim_h_en_z, dim_h_de_x, dim_z, L, iterations, learningRate,  polyak, batch_size, trainset_size, sparse
+	    return dim_h_en_z, dim_h_de_x, dim_z, L, iterations, learningRate,  polyak, batch_size, trainset_size, sparse, mincount
 
   #-------------------       		 parse config file       		--------------------
 
 	foldername = "results/vae/" + sys.argv[1]
-	dim_h_en_z, dim_h_de_x, dim_z , L, iterations , learningRate, polyak, batch_size, trainset_size, sparse = parse_config(foldername)
+	dim_h_en_z, dim_h_de_x, dim_z , L, iterations, learningRate, polyak, batch_size, trainset_size, sparse, mincount = parse_config(foldername)
 	normalization = 'l2'
 	nonlinearity ='relu'
 	type_rec = 'poisson'
@@ -60,7 +61,7 @@ if __name__=="__main__":
 	#-------------------      		 load dataset		       		--------------------
 
 	print "loading dataset"
-	f = gzip.open('data/NY/docwordny_matrix_10000.pklz','rb')
+	f = gzip.open('data/NY/docwordny_matrix_' + str(mincount) + '.pklz','rb')
 	x_all = pickle.load(f)
 	f.close()
 	print "done"
@@ -68,8 +69,6 @@ if __name__=="__main__":
 	x_all = csr_matrix(x_all)
 	print "splitting train-test"
 	x = x_all[:trainset_size,:]
-	print "converting train to csr"
-
 	n, v = x.shape
 	print "number of datapoints: ", n, "number of features: ", v 
 	x_valid = x_all[trainset_size:,:]
