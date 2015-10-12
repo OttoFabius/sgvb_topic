@@ -60,25 +60,25 @@ if __name__=="__main__":
 	#-------------------      		 load dataset		       		--------------------
 
 	print "loading dataset"
-	f = gzip.open('data/NY/docwordny_matrix_1000.pklz','rb')
+	f = gzip.open('data/NY/docwordny_matrix_10000.pklz','rb')
 	x_all = pickle.load(f)
 	f.close()
 	print "done"
-
+	print "converting to csr"
+	x = csr_matrix(x)
 	print "splitting train-test"
 	x = x_all[:trainset_size,:]
 	print "converting train to csr"
+
 	n, v = x.shape
-	print "number of datapoints in train set: ", n, "number of features: ", v 
+	print "number of datapoints: ", n, "number of features: ", v 
 	x_valid = x_all[trainset_size:,:]
+	x_valid = csr_matrix(x_valid)
 
 	name_log = foldername + '/log.txt'
-	print "intantiating model"
 	model = VAE.VAE(n, v, dim_h_en_z=dim_h_en_z, dim_h_de_x=dim_h_de_x, dim_z=dim_z, batch_size=batch_size,
                 nonlinearity=nonlinearity, normalization=normalization, L=L,
                 type_rec=type_rec, type_latent=type_latent, iterations=iterations, learningRate=learningRate, 
                 polyak=polyak, name_log=name_log, seed=12345, sparse=sparse)
-	print "starting fit"
 	model.fit(x, x_valid)
-	print "done"
 
