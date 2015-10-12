@@ -65,7 +65,7 @@ if __name__=="__main__":
 	f.close()
 	print "done"
 	print "converting to csr"
-	x = csr_matrix(x)
+	x_all = csr_matrix(x_all)
 	print "splitting train-test"
 	x = x_all[:trainset_size,:]
 	print "converting train to csr"
