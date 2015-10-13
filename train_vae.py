@@ -61,7 +61,7 @@ if __name__=="__main__":
 	#-------------------      		 load dataset		       		--------------------
 
 	print "loading dataset"
-	f = gzip.open('data/NY/docwordny_matrix_' + str(mincount) + '.pklz','rb')
+	f = gzip.open('data/KOS/docwordkos_matrix_' + str(mincount) + '.pklz','rb')
 	x_all = pickle.load(f)
 	f.close()
 	print "done"

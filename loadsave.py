@@ -279,8 +279,10 @@ def select_features(mincount=100, dataset='NY'):
 	start = time.time()
 	print"loading pickled data"
 	if dataset=='NY':
-		f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
+		print "NY dataset"
+		f = gzip.open('data/NY/docwordny_matrix_0.pklz','rb')
 	elif dataset=='KOS':
+		print "KOS dataset"
 		f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
 	data = pickle.load(f)
 	f.close()
@@ -290,13 +292,9 @@ def select_features(mincount=100, dataset='NY'):
 	data_csr = csr_matrix(data)
 	data_csr.sum(0)
 	print "done"
-	print "a"
 	row_indices = np.ndarray.flatten(np.array(np.nonzero(data_csr.sum(0)>mincount)[1]))
-	print "b"
 	data_pruned = data_csr[:,row_indices]
-	print "c"
 	data_pruned_lil = lil_matrix(data_pruned)
-	print "d"
 	if dataset=='NY':
 		f = gzip.open('data/NY/docwordny_matrix_' + str(mincount) + '.pklz','wb')
 	elif dataset == 'KOS':
