@@ -64,6 +64,7 @@ if __name__=="__main__":
 	f = gzip.open('data/NY/docwordny_matrix_' + str(mincount) + '.pklz','rb')
 	x_all = pickle.load(f)
 	f.close()
+	print "size is ", x_all.data.nbytes
 	print "done"
 	print "converting to csr"
 	x_all = csr_matrix(x_all)
