@@ -205,7 +205,7 @@ class VAE(object):
                             batch_size=self.batch_size, polyak=self.polyak, beta3=self.beta3)
         self.transform = theano.function([x], enpinf_z[0])  # return the mean of the latent as the new representation
 
-    def fit(self, x, xvalid=None, verbose=False, print_every=10):
+    def fit(self, x, xvalid=None, verbose=False, print_every=5):
         """
         Fit the model to data
         """

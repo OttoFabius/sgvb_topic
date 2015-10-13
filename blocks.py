@@ -95,7 +95,7 @@ class MLP(object):
                     inp *= (1. - drop_rate)
 
             if sparse & i==1:
-                lin_dot += theano.sparse.basic.dot(inp, W)
+                lin_dot += theano.sparse.basic.structured_dot(inp, W)
             else:
                 lin_dot +=T.dot(inp, W)
 
