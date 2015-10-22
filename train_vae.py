@@ -61,24 +61,26 @@ if __name__=="__main__":
 	#-------------------      		 load dataset		       		--------------------
 
 	print "loading dataset"
-	f = gzip.open('data/NY/docwordny_matrix_' + str(mincount) + '.pklz','rb')
+	f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+
+	# f = gzip.open('data/KOS/docwordkos_matrix_' + str(mincount) + '.pklz','rb')
 	x_all = pickle.load(f)
 	f.close()
+	print x_all.shape
 	print "size is ", x_all.data.nbytes
 	print "done"
 	print "converting to csr"
-	x_all = csr_matrix(x_all)
+	x_all = csc_matrix(x_all)
 	print "splitting train-test"
 	x = x_all[:trainset_size,:]
 	n, v = x.shape
 	print "number of datapoints: ", n, "number of features: ", v 
 	x_valid = x_all[trainset_size:,:]
-	x_valid = csr_matrix(x_valid)
 
 	name_log = foldername + '/log.txt'
 	model = VAE.VAE(n, v, dim_h_en_z=dim_h_en_z, dim_h_de_x=dim_h_de_x, dim_z=dim_z, batch_size=batch_size,
                 nonlinearity=nonlinearity, normalization=normalization, L=L,
                 type_rec=type_rec, type_latent=type_latent, iterations=iterations, learningRate=learningRate, 
-                polyak=polyak, name_log=name_log, seed=12345, sparse=sparse)
+                polyak=polyak, name_log=name_log, seed=20, sparse=sparse)
 	model.fit(x, x_valid)
 
