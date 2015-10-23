@@ -4,6 +4,7 @@ import gzip
 import cPickle as pickle
 from scipy.sparse import csr_matrix, csc_matrix
 import scipy.sparse as sp
+import numpy as np
 
 if __name__=="__main__":
 
@@ -35,13 +36,15 @@ if __name__=="__main__":
 
     selected_features = None
     docnrs = range(3)
-
+    runs = 1
     ndocs_test = len(docnrs)
-   
-
-	perplexity = 0
-	for docnr in docnrs:
-		doc = x_train[:,docnr]
-		perplexity += model.calculate_perplexity(doc, selected_features=selected_features)/ndocs_test 
-	print perplexity
+   	
+    log_perplexity = 0
+    for i in range(runs):
+	    log_perplexity_run = 0
+	    for docnr in docnrs:
+			doc = x_train[:,docnr]
+			log_perplexity_run += model.calculate_perplexity(doc, selected_features=selected_features)
+	    log_perplexity += log_perplexity_run
+    print log_perplexity/runs
 
