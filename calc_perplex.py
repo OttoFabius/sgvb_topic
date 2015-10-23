@@ -21,7 +21,7 @@ if __name__=="__main__":
 
     #	----------------				load dataset & create model 	   --------------------
     print "loading dataset"
-    f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+    f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
     x = pickle.load(f)
     f.close()
 
@@ -31,7 +31,7 @@ if __name__=="__main__":
     x_train = csr_matrix(x)
     n, voc_size = x_train.get_shape()
 
-    x_train = x_train.T
+    # x_train = x_train.T #for kos dataset
     model = vae_own.topic_model(voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size, only_trainset, HUe2=HUe2, HUd2=HUd2)
 
     selected_features = None
