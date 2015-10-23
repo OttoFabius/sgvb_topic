@@ -46,11 +46,12 @@ if __name__=="__main__":
 
     #	----------------				load dataset & create model 	   --------------------
 
-    f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+    f = gzip.open('data/NY/docwordny_matrix_10000.pklz','rb')
     x = pickle.load(f)
     f.close()
-    x_train = csc_matrix(x[:3000,:])
+    x_train = csc_matrix(x[:,:])
     n, voc_size = x_train.get_shape()
+    print n, "datapoints and", voc_size, "features"
 
     print "initializing model + graph..."
     model = topic_model(voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size, only_trainset, HUe2=HUe2, HUd2=HUd2)
