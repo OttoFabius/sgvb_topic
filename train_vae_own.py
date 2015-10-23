@@ -82,6 +82,3 @@ if __name__=="__main__":
         	print "saving lowerbound, params"
         	np.save('results/vae_own/' + sys.argv[1] + '/lowerbound.npy', lowerbound_list)
         	model.save_parameters("results/vae_own/" + sys.argv[1])
-
-        
-

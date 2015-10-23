@@ -151,11 +151,11 @@ class topic_model:
         return lowerbound, recon_err, KLD
 
     def encode(self, x):
-        """Helper function to compute the encoding of a datapoint to z"""
-        h = np.zeros((self.hidden_units_encoder,1))
+        """Helper function to compute the encoding of a datapoint or minibatch to z"""
+
 
         We1 = self.params["We1"].get_value() 
-        Wb1 = self.params["Wb1"].get_value()      
+        be1 = self.params["be1"].get_value()      
 
         We_mu = self.params["We_mu"].get_value()
         be_mu = self.params["be_mu"].get_value()
@@ -163,13 +163,11 @@ class topic_model:
         We_var = self.params["We_var"].get_value()
         be_var = self.params["be_var"].get_value()
 
-
         H_lin = np.dot(We1, x) + be1
         H = np.log(1 + np.exp(H_lin)) #softplus
 
         mu  = np.dot(We_mu, H)  + be_mu
-        logvar = T.dot(We_var, H) + be_var
-
+        logvar = np.dot(We_var, H) + be_var
 
         return mu, logvar
 
@@ -184,31 +182,42 @@ class topic_model:
 
         z = np.random.normal(mu, np.exp(logvar))
 
-        H_d_lin = np.dot(Wd1, z)  + bd1
+        H_d_lin = np.dot(Wd1, z) + bd1 
+        H_d = np.log(1 + np.exp(H_d_lin))
 
-        y = T.nnet.softplus(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
+        y_lin = np.dot(Wd2, H_d)  + bd2
+        y = np.log(1 + np.exp(y_lin))
 
-        x = np.zeros((t_steps+1,self.features))
+        return y
 
-        W_zh = self.params['W_zh'].get_value()
-        b_zh = self.params['b_zh'].get_value()
+    def calculate_perplexity(self, doc, selected_features=None):
 
-        W_hhd = self.params['W_hhd'].get_value()
-        b_hhd = self.params['b_hhd'].get_value()
-
-        W_xhd = self.params['W_xhd'].get_value()
-        b_xhd = self.params['b_xhd'].get_value()
-
-        W_hx = self.params['W_hx'].get_value()
-        b_hx = self.params['b_hx'].get_value()
-
-        h = W_zh.dot(z) + b_zh
-
-        for t in xrange(t_steps):
-            h = np.tanh(W_hhd.dot(h) + b_hhd + W_xhd.dot(x[t,:,np.newaxis]) + b_xhd)
-            x[t+1,:] = np.squeeze(1 /(1 + np.exp(-(W_hx.dot(h) + b_hx))))
+        # calculates perplexity for one document, currently fills in missing features with 0.
+        doc = np.array(doc.todense())
+        doc_compare = np.zeros_like(doc) #should become mean over dataset
         
-        return x[1:,:]
+        if selected_features:
+            doc = doc[selected_features]
+
+        doc_encode = np.zeros_like(doc)
+
+        for word in range(doc.shape[0]):
+            if doc[word] !=0:
+                doc_encode[word] = np.random.binomial(doc[word], 0.5)
+        doc_compare = doc - doc_encode
+
+        mu, logvar = self.encode(doc)
+
+        y = self.decode(mu, logvar)
+
+        if selected_features:
+            reconstruction[selected_features] = y
+        else:
+            reconstruction = y
+
+        perplexity = np.mean(-reconstruction + doc_compare * np.log(reconstruction))
+
+        return perplexity
 
     def save_parameters(self, path):
         """Saves parameters"""

@@ -4,4 +4,10 @@
 *.gz
 *.mat
 *.txt
-
+*.pklz
+*.npy
+*.pkl
+*.cfg~
+*.py~
+*.pyc
+*.txt~
