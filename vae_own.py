@@ -69,7 +69,7 @@ class topic_model:
 
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
-        logvar = T.nnet.softplus(T.dot(self.params['We_var'], H) + self.params['be_var'])
+        logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
 
 
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
@@ -149,6 +149,66 @@ class topic_model:
             #     progress = int(50.*i/len(data_x))
 
         return lowerbound, recon_err, KLD
+
+    def encode(self, x):
+        """Helper function to compute the encoding of a datapoint to z"""
+        h = np.zeros((self.hidden_units_encoder,1))
+
+        We1 = self.params["We1"].get_value() 
+        Wb1 = self.params["Wb1"].get_value()      
+
+        We_mu = self.params["We_mu"].get_value()
+        be_mu = self.params["be_mu"].get_value()
+
+        We_var = self.params["We_var"].get_value()
+        be_var = self.params["be_var"].get_value()
+
+
+        H_lin = np.dot(We1, x) + be1
+        H = np.log(1 + np.exp(H_lin)) #softplus
+
+        mu  = np.dot(We_mu, H)  + be_mu
+        logvar = T.dot(We_var, H) + be_var
+
+
+        return mu, logvar
+
+    def decode(self, mu, logvar):
+        """Helper function to compute the decoding of a datapoint from z to x"""
+
+        Wd1 = self.params["Wd1"].get_value()
+        bd1 = self.params["bd1"].get_value()
+
+        Wd2 = self.params["Wd2"].get_value()
+        bd2 = self.params["bd2"].get_value()
+
+        z = np.random.normal(mu, np.exp(logvar))
+
+        H_d_lin = np.dot(Wd1, z)  + bd1
+
+        y = T.nnet.softplus(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
+
+        x = np.zeros((t_steps+1,self.features))
+
+        W_zh = self.params['W_zh'].get_value()
+        b_zh = self.params['b_zh'].get_value()
+
+        W_hhd = self.params['W_hhd'].get_value()
+        b_hhd = self.params['b_hhd'].get_value()
+
+        W_xhd = self.params['W_xhd'].get_value()
+        b_xhd = self.params['b_xhd'].get_value()
+
+        W_hx = self.params['W_hx'].get_value()
+        b_hx = self.params['b_hx'].get_value()
+
+        h = W_zh.dot(z) + b_zh
+
+        for t in xrange(t_steps):
+            h = np.tanh(W_hhd.dot(h) + b_hhd + W_xhd.dot(x[t,:,np.newaxis]) + b_xhd)
+            x[t+1,:] = np.squeeze(1 /(1 + np.exp(-(W_hx.dot(h) + b_hx))))
+        
+        return x[1:,:]
 
     def save_parameters(self, path):
         """Saves parameters"""

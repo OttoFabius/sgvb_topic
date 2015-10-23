@@ -45,11 +45,12 @@ if __name__=="__main__":
 
 
     #	----------------				load dataset & create model 	   --------------------
-
-    f = gzip.open('data/NY/docwordny_matrix_10000.pklz','rb')
+    print "loading dataset"
+    f = gzip.open('data/NY/docwordny_matrix_1000.pklz','rb')
     x = pickle.load(f)
     f.close()
-    x_train = csc_matrix(x[:,:])
+    print "converting to csr"
+    x_train = csr_matrix(x)
     n, voc_size = x_train.get_shape()
     print n, "datapoints and", voc_size, "features"
 
@@ -59,6 +60,7 @@ if __name__=="__main__":
     #	----------------		optional: load parameters           --------------------
 
     if len(sys.argv) > 2 and sys.argv[2] == "--load":
+        print "loading params for restart"
     	model.load_parameters('results/vae_own/' + sys.argv[1])
     	lowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound.npy')
     	epoch = lowerbound_list.shape[0]
