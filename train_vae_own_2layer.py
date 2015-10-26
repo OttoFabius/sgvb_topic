@@ -52,7 +52,7 @@ if __name__=="__main__":
     print "converting to csr"
     x_csc = csc_matrix(x)
     x_train = csc_matrix(x_csc[:290000,:])
-    x_train = csc_matrix(x_csc[290000:,:])
+    x_test = csc_matrix(x_csc[290000:,:])
     n, voc_size = x_train.get_shape()
     print n, "datapoints and", voc_size, "features"
 
