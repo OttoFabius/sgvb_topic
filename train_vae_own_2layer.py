@@ -46,7 +46,7 @@ if __name__=="__main__":
 
     #	----------------				load dataset & create model 	   --------------------
     print "loading dataset"
-    f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
+    f = gzip.open('data/NY/docwordny_matrix_1000.pklz','rb')
     x = pickle.load(f)
     f.close()
     print "converting to csr"
