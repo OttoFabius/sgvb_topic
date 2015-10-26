@@ -155,9 +155,9 @@ class topic_model:
             lowerbound += lowerbound_doc
             recon_err += recon_err_doc
             KLD += KLD_doc
-            # if progress != int(50.*i/len(data_x)):
-            #     print '='*int(50.*i/len(data_x))+'>'
-            #     progress = int(50.*i/len(data_x))
+            if progress != int(50.*i/len(data_x)):
+                print '='*int(50.*i/len(data_x))+'>'
+                progress = int(50.*i/len(data_x))
 
         return lowerbound, recon_err, KLD
 
