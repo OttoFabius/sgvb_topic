@@ -50,7 +50,8 @@ if __name__=="__main__":
     x = pickle.load(f)
     f.close()
     print "converting to csr"
-    x_train = csr_matrix(x)
+    x_train = csr_matrix(x[:290000,:])
+    x_train = csr_matrix(x[290000:,:])
     n, voc_size = x_train.get_shape()
     print n, "datapoints and", voc_size, "features"
 
