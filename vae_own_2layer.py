@@ -23,21 +23,27 @@ class topic_model:
         We1 = th.shared(np.random.normal(0,sigmaInit,(HUe1, voc_size)).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,sigmaInit,(HUe1,1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
-        We_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,HUe1)).astype(th.config.floatX), name = 'We_mu')
+        We2 = th.shared(np.random.normal(0,sigmaInit,(HUe2, HUe1)).astype(th.config.floatX), name = 'We2')
+        be2 = th.shared(np.random.normal(0,sigmaInit,(HUe2,1)).astype(th.config.floatX), name = 'be2', broadcastable=(False,True))
+
+        We_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,HUe2)).astype(th.config.floatX), name = 'We_mu')
         be_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
-        We_var = th.shared(np.random.normal(0,sigmaInit,(dimZ, HUe1)).astype(th.config.floatX), name = 'We_var')
+        We_var = th.shared(np.random.normal(0,sigmaInit,(dimZ, HUe2)).astype(th.config.floatX), name = 'We_var')
         be_var = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
         Wd1 = th.shared(np.random.normal(0,sigmaInit,(HUd1, dimZ)).astype(th.config.floatX), name = 'Wd1')
         bd1 = th.shared(np.random.normal(0,sigmaInit,(HUd1,1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
 
-        Wd2 = th.shared(np.random.normal(0,sigmaInit,(voc_size, HUd1)).astype(th.config.floatX), name = 'Wd2')
-        bd2 = th.shared(np.random.normal(0,sigmaInit,(voc_size,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+        Wd2 = th.shared(np.random.normal(0,sigmaInit,(HUd2, HUd1)).astype(th.config.floatX), name = 'Wd2')
+        bd2 = th.shared(np.random.normal(0,sigmaInit,(HUd2,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+
+        Wd3 = th.shared(np.random.normal(0,sigmaInit,(voc_size, HUd2)).astype(th.config.floatX), name = 'Wd3')
+        bd3 = th.shared(np.random.normal(0,sigmaInit,(voc_size,1)).astype(th.config.floatX), name = 'bd3', broadcastable=(False,True))
 
 
-        self.params = OrderedDict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu),  \
-            ('We_var', We_var), ('be_var', be_var), ('Wd1', Wd1), ('bd1', bd1), ('Wd2', Wd2), ('bd2', bd2)])
+        self.params = OrderedDict([('We1', We1), ('be1', be1), ('We2', We2), ('be2', be2), ('We_mu', We_mu), ('be_mu', be_mu),  \
+            ('We_var', We_var), ('be_var', be_var), ('Wd1', Wd1), ('bd1', bd1), ('Wd2', Wd2), ('bd2', bd2), ('Wd3', Wd3), ('bd3', bd3)])
 
         # Adam
         self.b1 = 0.1
@@ -64,20 +70,25 @@ class topic_model:
 
         srng = T.shared_randomstreams.RandomStreams()
 
-        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
-        H = T.nnet.softplus(H_lin)
+        H1_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
+        H1 = T.nnet.softplus(H1_lin)
+
+        H2_lin = T.dot(self.params['We2'], H1) + self.params['be2']
+        H2 = T.nnet.softplus(H2_lin)
 
 
-        mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
-        logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
+
+        mu  = T.dot(self.params['We_mu'], H2)  + self.params['be_mu']
+        logvar = T.dot(self.params['We_var'], H2) + self.params['be_var']
 
 
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
         z = mu + T.exp(0.5*logvar)*eps
 
-        H_d = T.nnet.softplus(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
+        H_d_1 = T.nnet.softplus(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
+        H_d_2 = T.nnet.softplus(T.dot(self.params['Wd2'], H_d_1)  + self.params['bd2'])
         # y=lambda of Poisson
-        y = T.nnet.softplus(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
+        y = T.nnet.softplus(T.dot(self.params['Wd3'], H_d_2)  + self.params['bd3'])
 
         # define lowerbound 
         KLD = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0))
@@ -150,74 +161,6 @@ class topic_model:
 
         return lowerbound, recon_err, KLD
 
-    def encode(self, x):
-        """Helper function to compute the encoding of a datapoint or minibatch to z"""
-
-
-        We1 = self.params["We1"].get_value() 
-        be1 = self.params["be1"].get_value()      
-
-        We_mu = self.params["We_mu"].get_value()
-        be_mu = self.params["be_mu"].get_value()
-
-        We_var = self.params["We_var"].get_value()
-        be_var = self.params["be_var"].get_value()
-
-        H_lin = np.dot(We1, x) + be1
-        H = np.log(1 + np.exp(H_lin)) #softplus
-
-        mu  = np.dot(We_mu, H)  + be_mu
-        logvar = np.dot(We_var, H) + be_var
-
-        return mu, logvar
-
-    def decode(self, mu, logvar):
-        """Helper function to compute the decoding of a datapoint from z to x"""
-
-        Wd1 = self.params["Wd1"].get_value()
-        bd1 = self.params["bd1"].get_value()
-
-        Wd2 = self.params["Wd2"].get_value()
-        bd2 = self.params["bd2"].get_value()
-
-        z = np.random.normal(mu, np.exp(logvar))
-
-        H_d_lin = np.dot(Wd1, z) + bd1 
-        H_d = np.log(1 + np.exp(H_d_lin))
-
-        y_lin = np.dot(Wd2, H_d)  + bd2
-        y = np.log(1 + np.exp(y_lin))
-
-        return y
-
-    def calculate_perplexity(self, doc, selected_features=None):
-
-        # calculates perplexity for one document, currently fills in missing features with 0.
-        doc = np.array(doc.todense())
-        doc_compare = np.zeros_like(doc) #should become mean over dataset
-        
-        if selected_features:
-            doc = doc[selected_features]
-
-        doc_encode = np.zeros_like(doc)
-
-        for word in range(doc.shape[0]):
-            if doc[word] !=0:
-                doc_encode[word] = np.random.binomial(doc[word], 0.5)
-        doc_compare = doc - doc_encode
-
-        mu, logvar = self.encode(doc)
-
-        y = self.decode(mu, logvar)
-
-        if selected_features:
-            reconstruction[selected_features] = y
-        else:
-            reconstruction = y
-
-        log_perplexity = -np.mean(-reconstruction + doc_compare * np.log(reconstruction))
-
-        return log_perplexity
 
     def save_parameters(self, path):
         """Saves parameters"""
