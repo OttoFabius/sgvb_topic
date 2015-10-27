@@ -316,7 +316,7 @@ def select_features_ent(n_features=1000, dataset='KOS'):
 	print"loading pickled data"
 	if dataset=='NY':
 		print "NY dataset"
-		f = gzip.open('data/NY/docwordny_matrix_0.pklz','rb')
+		f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
 	elif dataset=='KOS':
 		print "KOS dataset"
 		f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
