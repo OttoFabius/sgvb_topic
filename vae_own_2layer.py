@@ -10,7 +10,7 @@ import cPickle as pickle
 
 
 class topic_model:
-    def __init__(self, voc_size, dimZ, HUe1, HUd1, learning_rate, sigmaInit, batch_size, only_trainset, HUe2=0, HUd2=0):
+    def __init__(self, voc_size, dimZ, HUe1, HUd1, learning_rate, sigmaInit, batch_size, HUe2=0, HUd2=0):
         """NB dimensions of HU_qx and HU_qd have to match if they merge"""
 
         self.dimZ = dimZ
@@ -160,6 +160,20 @@ class topic_model:
             #     progress = int(50.*i/len(data_x))
 
         return lowerbound, recon_err, KLD
+
+    def getLowerBound(self,data):
+        """Use this method for example to compute lower bound on testset"""
+        lowerbound = 0
+        [N,dimX] = data.shape
+        batches = np.arange(0,N,self.batch_size)
+        if batches[-1] != N:
+            batches = np.append(batches,N)
+
+        for i in xrange(0,len(batches)-2):
+            miniBatch = data[batches[i]:batches[i+1]]
+            lowerbound += self.lowerbound(x=miniBatch.T)
+
+        return lowerbound/N
 
 
     def save_parameters(self, path):

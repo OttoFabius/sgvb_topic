@@ -10,7 +10,7 @@ import cPickle as pickle
 
 
 class topic_model:
-    def __init__(self, voc_size, dimZ, HUe1, HUd1, learning_rate, sigmaInit, batch_size, only_trainset, HUe2=0, HUd2=0):
+    def __init__(self, voc_size, dimZ, HUe1, HUd1, learning_rate, sigmaInit, batch_size, HUe2=0, HUd2=0):
         """NB dimensions of HU_qx and HU_qd have to match if they merge"""
 
         self.dimZ = dimZ

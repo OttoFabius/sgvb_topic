@@ -302,4 +302,53 @@ def select_features(mincount=100, dataset='NY'):
 	pickle.dump(data_pruned_lil, f)
 	f.close()
 
+	if dataset=='NY':
+		f = gzip.open('data/NY/docwordny_' + str(mincount) + 'selected.pklz','wb')
+	elif dataset == 'KOS':
+		f = gzip.open('data/KOS/docwordkos_' + str(mincount) + '_selected.pklz','wb')
+	pickle.dump(row_indices, f)
+	f.close()
+
 	print "new shape = ", data_pruned_lil.shape
+
+def select_features_ent(n_features=1000, dataset='KOS'):
+	start = time.time()
+	print"loading pickled data"
+	if dataset=='NY':
+		print "NY dataset"
+		f = gzip.open('data/NY/docwordny_matrix_0.pklz','rb')
+	elif dataset=='KOS':
+		print "KOS dataset"
+		f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+	data = pickle.load(f)
+	f.close()
+	print "done"
+	print "old shape", data.shape
+	print "converting to csr"
+	data_csc = csc_matrix(data)
+
+	print "done, calculating sum"
+	sum_per_word = data_csc.sum(0)
+	n_total = data_csc.sum()
+
+	print "calculating p and q"
+	p = sum_per_word/n_total
+	q = data_csc/data_csc.sum(1)
+
+	print "calculating entropy"
+	neg_entropy = np.sum(np.multiply(q, np.log(p)), axis=0)
+	indices = neg_entropy.argsort()[:,:n_features]
+	indices = np.array(indices).squeeze()
+
+	data_selected = data_csc[:,np.squeeze(indices)]
+	print time.time()-start, "seconds"
+	if dataset=='NY':
+		f = gzip.open('data/NY/docwordny_' + str(n_features) + 'entselect.pklz','wb')
+		g = gzip.open('data/NY/docwordny_' + str(n_features) + 'entselect_indices.pklz','wb')
+	elif dataset == 'KOS':
+		f = gzip.open('data/KOS/docwordkos_' + str(n_features) + '_entselect.pklz','wb')
+		g = gzip.open('data/KOS/docwordkos_' + str(n_features) + '_entselect_indices.pklz','wb')
+	pickle.dump(data_selected, f)
+	pickle.dump(indices, g)
+	f.close()
+	g.close()

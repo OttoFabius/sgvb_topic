@@ -23,40 +23,67 @@ def parse_config():
     learning_rate = config.getfloat('parameters','learning_rate')
     sigmaInit = config.getfloat('parameters','sigmaInit')
     batch_size = config.getint('parameters','batch_size')
-    only_trainset = config.getboolean('parameters','only_trainset')
+    trainset_size = config.getint('parameters','trainset_size')
+    dataset_num = config.getint('parameters','dataset')
+    if dataset_num == 0:
+        dataset = 'kos'
+    elif dataset_num == 1:
+        dataset = 'ny'
 
 
-    return latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, only_trainset
+    return latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, dataset
 
 
 
 
 if __name__=="__main__":
 
-
+    dataset == 'ny'
     THEANO_FLAGS=optimizer=None
 
     import warnings
     warnings.filterwarnings("ignore")
 
-    #-------------------       		 parse config file       		--------------------
+    #-------------------             parse config file              --------------------
 
-    latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, only_trainset = parse_config()
+    latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size = parse_config()
 
 
-    #	----------------				load dataset & create model 	   --------------------
-    print "loading dataset"
-    f = gzip.open('data/NY/docwordny_matrix_10000.pklz','rb')
+    #   ----------------                load dataset & create model        --------------------
+    
+    if dataset=='kos':
+        if minfreq>0:
+            print "loading KOS dataset with minimum", minfreq, 'word frequency'
+            f = gzip.open('data/kos/docwordkos_matrix_'+str(minfreq)+'.pklz','rb')
+        elif entselect>0:
+            f = gzip.open('data/kos/docwordkos_matrix_'+str(entselect)+'_ent.pklz','rb')
+            print "loading KOS dataset with", entselect, 'features selected on entropy'
+        else:
+            print 'loading KOS dataset full vocabulary'
+            f = gzip.open('data/kos/docwordkos_matrix.pklz','rb')
+
+    if dataset=='ny':
+        if minfreq>0:
+            print "loading NY dataset with minimum", minfreq, 'word frequency'
+            f = gzip.open('data/NY/docwordny_matrix_'+str(minfreq)+'.pklz','rb')
+        elif entselect>0:
+            f = gzip.open('data/NY/docwordny_matrix_'+str(entselect)+'_ent.pklz','rb')
+            print "loading NY dataset with", entselect, 'features selected on entropy'
+        else:
+            print 'loading NY dataset full vocabulary'
+            f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
+
     x = pickle.load(f)
     f.close()
     print "converting to csr"
-    x_train = csr_matrix(x)
+    x_csc = csc_matrix(x)
+    x_train = csc_matrix(x_csc[:trainset_size,:])
+    x_test = csc_matrix(x_csc[trainset_size:,:])
     n, voc_size = x_train.get_shape()
     print n, "datapoints and", voc_size, "features"
 
     print "initializing model + graph..."
-    model = topic_model(voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size, only_trainset, HUe2=HUe2, HUd2=HUd2)
-    
+    model = topic_model(voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size)
     #	----------------		optional: load parameters           --------------------
 
     if len(sys.argv) > 2 and sys.argv[2] == "--load":
