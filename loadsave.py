@@ -312,7 +312,7 @@ def select_features(mincount=100, dataset='NY'):
 	print "new shape = ", data_pruned_lil.shape
 
 def select_features_ent(n_features=1000, dataset='KOS'):
-	start = time.time()
+	
 	print"loading pickled data"
 	if dataset=='NY':
 		print "NY dataset"
@@ -325,6 +325,7 @@ def select_features_ent(n_features=1000, dataset='KOS'):
 	print "done"
 	print "old shape", data.shape
 	print "converting to csr"
+	start = time.time()
 	data_csc = csc_matrix(data)
 
 	print "done, calculating sum"
@@ -333,7 +334,8 @@ def select_features_ent(n_features=1000, dataset='KOS'):
 
 	print "calculating p and q"
 	p = sum_per_word/n_total
-	q = data_csc/data_csc.sum(1)
+	doc_sizes = data_csc.sum(1)
+	q = data_csc/doc_sizes
 
 	print "calculating entropy"
 	neg_entropy = np.sum(np.multiply(q, np.log(p)), axis=0)
