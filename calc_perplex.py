@@ -31,7 +31,7 @@ if __name__=="__main__":
 
     if len(sys.argv) > 2 and sys.argv[2] == "--selected_features":
     	if dataset == 'ny':
-    		f = gzip.open('data/NY/docwordny_'+str(minfreq) +'_selected.pklz','rb')
+    		f = gzip.open('data/NY/docwordny_'+str(minfreq) +'selected.pklz','rb')
     	elif dataset=='kos':
     		f = gzip.open('data/KOS/docwordkos_'+str(minfreq) +'_selected.pklz','rb')
     	selected_features = pickle.load(f)
