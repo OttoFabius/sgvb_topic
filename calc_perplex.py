@@ -22,22 +22,22 @@ if __name__=="__main__":
 
     #	----------------				load dataset & create model 	   --------------------
     print "loading dataset"
-    if dataset == 1:
+    if dataset == 'ny':
     	f = gzip.open('data/NY/docwordny_matrix_'+str(minfreq) +'.pklz','rb')
-    elif dataset == 0:
+    elif dataset == 'kos':
     	f = gzip.open('data/KOS/docwordkos_matrix_'+str(minfreq) +'.pklz','rb')
     x = pickle.load(f)
     f.close()
 
     if len(sys.argv) > 2 and sys.argv[2] == "--selected_features":
-    	if dataset == 1:
+    	if dataset == 'ny':
     		f = gzip.open('data/NY/docwordny_'+str(minfreq) +'_selected.pklz','rb')
-    	elif dataset==0:
+    	elif dataset=='kos':
     		f = gzip.open('data/KOS/docwordkos_'+str(minfreq) +'_selected.pklz','rb')
-	    selected_features = pickle.load(f)
-	    f.close()
+    	selected_features = pickle.load(f)
+    	f.close()
     else:
-		selected_features = None
+    	selected_features = None
 
 
 
