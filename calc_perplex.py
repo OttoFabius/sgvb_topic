@@ -44,7 +44,7 @@ if __name__=="__main__":
     print n, voc_size
     model = vae_own_2layer.topic_model(voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size, HUe2=HUe2, HUd2=HUd2)
 
-    docnrs = np.arange(290000,300000,1)
+    docnrs = np.arange(trainset_size, n ,1)
     runs = 1
     ndocs_test = len(docnrs)
    	
