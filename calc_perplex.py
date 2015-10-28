@@ -1,10 +1,11 @@
-from train_vae_own import parse_config
-import vae_own
+from train_vae_own_2layer import parse_config
+import vae_own_2layer
 import gzip
 import cPickle as pickle
 from scipy.sparse import csr_matrix, csc_matrix
 import scipy.sparse as sp
 import numpy as np
+import sys
 
 if __name__=="__main__":
 
@@ -16,26 +17,34 @@ if __name__=="__main__":
 
     #-------------------       		 parse config file       		--------------------
 
-    latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, only_trainset = parse_config()
+    latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, dataset, minfreq, entselect = parse_config()
 
 
     #	----------------				load dataset & create model 	   --------------------
     print "loading dataset"
-    f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
+    f = gzip.open('data/NY/docwordny_matrix_1000.pklz','rb')
     x = pickle.load(f)
     f.close()
+
+    if len(sys.argv) > 2 and sys.argv[2] == "--selected_features":
+	    f = gzip.open('data/NY/docwordny_1000_selected.pklz','rb')
+	    selected_features = pickle.load(f)
+	    f.close()
+    else:
+		selected_features = None
 
 
 
     print "converting to csr"
-    x_train = csr_matrix(x)
-    n, voc_size = x_train.get_shape()
+    x_csr = csr_matrix(x)
 
-    # x_train = x_train.T #for kos dataset
-    model = vae_own.topic_model(voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size, only_trainset, HUe2=HUe2, HUd2=HUd2)
+    # x_csr = x_csr.T #for kos dataset
+    n, voc_size = x_csr.shape
 
-    selected_features = None
-    docnrs = range(3)
+    print n, voc_size
+    model = vae_own_2layer.topic_model(voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size, HUe2=HUe2, HUd2=HUd2)
+
+    docnrs = np.arange(290000,300000,1)
     runs = 1
     ndocs_test = len(docnrs)
    	
@@ -43,7 +52,7 @@ if __name__=="__main__":
     for i in range(runs):
 	    log_perplexity_run = 0
 	    for docnr in docnrs:
-			doc = x_train[:,docnr]
+			doc = x_csr[docnr,:].T
 			log_perplexity_run += model.calculate_perplexity(doc, selected_features=selected_features)
 	    log_perplexity += log_perplexity_run
     print log_perplexity/runs

@@ -190,11 +190,10 @@ class topic_model:
 
         return y
 
-    def calculate_perplexity(self, doc, selected_features=None):
+    def calculate_perplexity(self, doc, selected_features=None, means=None):
 
         # calculates perplexity for one document, currently fills in missing features with 0.
         doc = np.array(doc.todense())
-        doc_compare = np.zeros_like(doc) #should become mean over dataset
         
         if selected_features:
             doc = doc[selected_features]
@@ -206,9 +205,14 @@ class topic_model:
                 doc_encode[word] = np.random.binomial(doc[word], 0.5)
         doc_compare = doc - doc_encode
 
-        mu, logvar = self.encode(doc)
+        mu, logvar = self.encode(doc_encode)
 
         y = self.decode(mu, logvar)
+
+        if means:
+            reconstruction = means
+        else:
+            reconstruction = np.zeros_like(doc)
 
         if selected_features:
             reconstruction[selected_features] = y

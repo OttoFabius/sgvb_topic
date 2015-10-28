@@ -161,6 +161,97 @@ class topic_model:
 
         return lowerbound, recon_err, KLD
 
+    def encode(self, x):
+        """Helper function to compute the encoding of a datapoint or minibatch to z"""
+
+
+        We1 = self.params["We1"].get_value() 
+        be1 = self.params["be1"].get_value() 
+
+        We2 = self.params["We2"].get_value() 
+        be2 = self.params["be2"].get_value()      
+
+        We_mu = self.params["We_mu"].get_value()
+        be_mu = self.params["be_mu"].get_value()
+
+        We_var = self.params["We_var"].get_value()
+        be_var = self.params["be_var"].get_value()
+
+        H_lin_1 = np.dot(We1, x) + be1
+        H_1 = np.log(1 + np.exp(H_lin_1)) #softplus
+
+        H_lin = np.dot(We2, H_1) + be2
+        H = np.log(1 + np.exp(H_lin)) #softplus
+
+        mu  = np.dot(We_mu, H)  + be_mu
+        logvar = np.dot(We_var, H) + be_var
+
+        return mu, logvar
+
+    def decode(self, mu, logvar):
+        """Helper function to compute the decoding of a datapoint from z to x"""
+
+        Wd1 = self.params["Wd1"].get_value()
+        bd1 = self.params["bd1"].get_value()
+
+        Wd2 = self.params["Wd2"].get_value()
+        bd2 = self.params["bd2"].get_value()
+
+        Wd3 = self.params["Wd3"].get_value()
+        bd3 = self.params["bd3"].get_value()
+
+        z = np.random.normal(mu, np.exp(logvar))
+
+        H_d_lin_1 = np.dot(Wd1, z) + bd1 
+        H_d_1 = np.log(1 + np.exp(H_d_lin_1))
+
+        H_d_lin_2 = np.dot(Wd2, H_d_1) + bd2
+        H_d = np.log(1 + np.exp(H_d_lin_2))
+
+        y_lin = np.dot(Wd3, H_d)  + bd3
+        y = np.log(1 + np.exp(y_lin))
+
+        return y
+
+
+    def calculate_perplexity(self, doc, selected_features=None, means=None):
+
+        doc = np.array(doc.todense())
+        
+        if selected_features:
+            doc = doc[selected_features]
+
+        doc_encode = np.zeros_like(doc)
+
+        for word in range(doc.shape[0]):
+
+            if doc[word] !=0:
+                doc_encode[word] = np.random.binomial(doc[word], 0.5)
+        doc_compare = doc - doc_encode
+
+        mu, logvar = self.encode(doc_encode)
+
+        y = self.decode(mu, logvar)
+
+        if means:
+            reconstruction = means
+            print "means"
+        else:
+            print "no means"
+            reconstruction = np.zeros_like(doc)
+
+        if selected_features:
+            reconstruction[selected_features] = y
+            print "selected features"
+        else:
+            reconstruction = y
+            print "no selected features"
+
+        log_perplexity = -np.mean(-reconstruction + doc_compare * np.log(reconstruction))
+
+        return log_perplexity
+
+
     def getLowerBound(self,data):
         """Use this method for example to compute lower bound on testset"""
         lowerbound = 0
