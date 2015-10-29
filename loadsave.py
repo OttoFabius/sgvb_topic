@@ -346,6 +346,7 @@ def select_features_ent(n_features=1000, dataset='KOS'):
 	elif dataset == 'KOS':
 		f = gzip.open('data/KOS/docwordkos_' + str(n_features) + '_entselect.pklz','wb')
 		g = gzip.open('data/KOS/docwordkos_' + str(n_features) + '_entselect_indices.pklz','wb')
+
 	pickle.dump(data_selected, f)
 	pickle.dump(indices, g)
 	f.close()

@@ -24,6 +24,7 @@ def parse_config():
     sigmaInit = config.getfloat('parameters','sigmaInit')
     batch_size = config.getint('parameters','batch_size')
     trainset_size = config.getint('parameters','trainset_size')
+    validationset_size = config.getint('parameters','validationset_size')
     dataset_num = config.getint('parameters','dataset')
     if dataset_num == 0:
         dataset = 'kos'
@@ -33,7 +34,7 @@ def parse_config():
     entselect = config.getint('parameters','entselect')
 
 
-    return latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, dataset, minfreq, entselect
+    return latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, validationset_size, dataset, minfreq, entselect
 
 
 
@@ -47,7 +48,7 @@ if __name__=="__main__":
 
     #-------------------       		 parse config file       		--------------------
 
-    latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, dataset, minfreq, entselect = parse_config()
+    latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, validationset_size, dataset, minfreq, entselect = parse_config()
 
 
     #	----------------				load dataset & create model 	   --------------------
@@ -74,13 +75,15 @@ if __name__=="__main__":
             print 'loading NY dataset full vocabulary'
             f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
 
-    x = pickle.load(f)
-    f.close()
-    print "converting to csr"
-    x_csc = csc_matrix(x)
-    x_train = csc_matrix(x_csc[:trainset_size,:])
-    x_test = csc_matrix(x_csc[trainset_size:,:])
-    n, voc_size = x_train.get_shape()
+	x = pickle.load(f)
+	f.close()
+	print "converting to csr"
+	x_csc = csc_matrix(x)
+	print 'a'
+	x_train = csc_matrix(x_csc[:trainset_size,:])
+	x_valid = csc_matrix(x_csc[trainset_size:trainset_size+validationset_size,:])
+	x_test = csc_matrix(x_csc[trainset_size+validationset_size:,:])
+    n, voc_size = x_train.shape
     print n, "datapoints and", voc_size, "features"
 
     print "initializing model + graph..."
@@ -92,6 +95,7 @@ if __name__=="__main__":
         print "loading params for restart"
     	model.load_parameters('results/vae_own/' + sys.argv[1])
     	lowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound.npy')
+        # testlowerbound_list = []
         testlowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound_test.npy')
     	epoch = lowerbound_list.shape[0]
     	print "Restarting at epoch: " + str(epoch)
@@ -108,7 +112,7 @@ if __name__=="__main__":
         epoch += 1
         x_train = shuffle(x_train)
         lowerbound, recon_err, KLD = model.iterate(x_train, epoch)
-        testlowerbound = model.getLowerBound(x_test)
+        testlowerbound = model.getLowerBound(x_valid)
         print 'epoch ', epoch, 'with objectives = ', lowerbound/n, "testlowerbound = ", testlowerbound, ",and {0} seconds".format(time.time() - start)
 
         lowerbound_list = np.append(lowerbound_list, lowerbound/n)
@@ -119,3 +123,4 @@ if __name__=="__main__":
         	np.save('results/vae_own/' + sys.argv[1] + '/lowerbound.npy', lowerbound_list)
         	np.save('results/vae_own/' + sys.argv[1] + '/lowerbound_test.npy', testlowerbound_list)
         	model.save_parameters("results/vae_own/" + sys.argv[1])
+        	print "done"

@@ -155,6 +155,7 @@ class topic_model:
             lowerbound += lowerbound_doc
             recon_err += recon_err_doc
             KLD += KLD_doc
+
             # if progress != int(50.*i/len(data_x)):
             #     print '='*int(50.*i/len(data_x))+'>'
             #     progress = int(50.*i/len(data_x))
@@ -200,7 +201,7 @@ class topic_model:
         Wd3 = self.params["Wd3"].get_value()
         bd3 = self.params["bd3"].get_value()
 
-        z = np.random.normal(mu, np.exp(logvar))
+        z = np.random.normal(mu, np.exp(logvar)) #check this
 
         H_d_lin_1 = np.dot(Wd1, z) + bd1 
         H_d_1 = np.log(1 + np.exp(H_d_lin_1))
@@ -215,39 +216,43 @@ class topic_model:
 
 
     def calculate_perplexity(self, doc, selected_features=None, means=None):
+        doc = np.array(doc.todense()) #orig
 
-        doc = np.array(doc.todense())
-        
-        if selected_features:
-            doc = doc[selected_features]
+        if selected_features!=None:
+            doc_selected = doc[selected_features] #new
+        else:
+            doc_selected = doc
 
-        doc_encode = np.zeros_like(doc)
+        doc_encode = np.zeros_like(doc_selected) #new
 
-        for word in range(doc.shape[0]):
-
+        for word in range(doc_selected.shape[0]):
             if doc[word] !=0:
-                doc_encode[word] = np.random.binomial(doc[word], 0.5)
-        doc_compare = doc - doc_encode
+                doc_encode[word] = np.random.binomial(doc[word], 0.5) #this isnt really cool yet!
+
+        doc_compare = doc
+
+        if selected_features!=None:
+            doc_compare[selected_features] = doc_selected - doc_encode #new
+        else:
+            doc_compare[selected_features] = doc_selected - doc_encode #new
 
         mu, logvar = self.encode(doc_encode)
 
         y = self.decode(mu, logvar)
 
-        if means:
+        if means!=None:
             reconstruction = means
-            print "means"
         else:
-            print "no means"
             reconstruction = np.zeros_like(doc)
+        e = 1e-12 #perhaps not necessary when using means
 
-        if selected_features:
+
+        if selected_features!=None:
             reconstruction[selected_features] = y
-            print "selected features"
         else:
             reconstruction = y
-            print "no selected features"
 
-        log_perplexity = -np.mean(-reconstruction + doc_compare * np.log(reconstruction))
+        log_perplexity = -np.mean(-reconstruction + np.multiply(doc_compare, np.log(reconstruction+e)))
 
         return log_perplexity
 
