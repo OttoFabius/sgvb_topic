@@ -17,7 +17,7 @@ if __name__=="__main__":
 
     #-------------------       		 parse config file       		--------------------
 
-	latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, dataset, minfreq, entselect = parse_config()
+	latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, validationset_size, dataset, minfreq, entselect = parse_config()
 
 
     #	----------------				load dataset & create model 	   --------------------
