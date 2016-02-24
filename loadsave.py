@@ -234,7 +234,7 @@ def convert_to_matrix(filename = 'data/KOS/docwordkos.txt'):
 
 	f = open(filename)
 	n_docs = int(f.readline())
-
+	voc_size = int(f.readline())
 	f.readline() #total words
 
 	docs = np.zeros([n_docs, voc_size])

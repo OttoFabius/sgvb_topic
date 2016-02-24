@@ -24,21 +24,22 @@ def parse_config():
     sigmaInit = config.getfloat('parameters','sigmaInit')
     batch_size = config.getint('parameters','batch_size')
     trainset_size = config.getint('parameters','trainset_size')
+    validationset_size = config.getint('parameters','validationset_size')
     dataset_num = config.getint('parameters','dataset')
     if dataset_num == 0:
         dataset = 'kos'
     elif dataset_num == 1:
         dataset = 'ny'
+    minfreq = config.getint('parameters','minfreq')
+    entselect = config.getint('parameters','entselect')
 
 
-    return latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, dataset
-
+    return latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, validationset_size, dataset, minfreq, entselect
 
 
 
 if __name__=="__main__":
 
-    dataset == 'ny'
     THEANO_FLAGS=optimizer=None
 
     import warnings
@@ -46,7 +47,7 @@ if __name__=="__main__":
 
     #-------------------             parse config file              --------------------
 
-    latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size = parse_config()
+    latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, validationset_size, dataset, minfreq, entselect = parse_config()
 
 
     #   ----------------                load dataset & create model        --------------------
@@ -54,13 +55,13 @@ if __name__=="__main__":
     if dataset=='kos':
         if minfreq>0:
             print "loading KOS dataset with minimum", minfreq, 'word frequency'
-            f = gzip.open('data/kos/docwordkos_matrix_'+str(minfreq)+'.pklz','rb')
+            f = gzip.open('data/KOS/docwordkos_matrix_'+str(minfreq)+'.pklz','rb')
         elif entselect>0:
             f = gzip.open('data/kos/docwordkos_matrix_'+str(entselect)+'_ent.pklz','rb')
             print "loading KOS dataset with", entselect, 'features selected on entropy'
         else:
             print 'loading KOS dataset full vocabulary'
-            f = gzip.open('data/kos/docwordkos_matrix.pklz','rb')
+            f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
 
     if dataset=='ny':
         if minfreq>0:
@@ -78,22 +79,31 @@ if __name__=="__main__":
     print "converting to csr"
     x_csc = csc_matrix(x)
     x_train = csc_matrix(x_csc[:trainset_size,:])
-    x_test = csc_matrix(x_csc[trainset_size:,:])
-    n, voc_size = x_train.get_shape()
+    x_valid = csc_matrix(x_csc[trainset_size:trainset_size+validationset_size,:])
+    x_test = csc_matrix(x_csc[trainset_size+validationset_size:,:])
+    n, voc_size = x_train.shape
+    n_valid = x_valid.shape[0]
     print n, "datapoints and", voc_size, "features"
 
     print "initializing model + graph..."
-    model = topic_model(voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size)
+    if HUe2 == 0:
+        model = topic_model(       voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size)
+    else:
+        model = topic_model_2layer(voc_size, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size, HUe2=HUe2, HUd2=HUd2)
+    
     #	----------------		optional: load parameters           --------------------
 
     if len(sys.argv) > 2 and sys.argv[2] == "--load":
         print "loading params for restart"
     	model.load_parameters('results/vae_own/' + sys.argv[1])
     	lowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound.npy')
+        testlowerbound_list = []
+        testlowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound_test.npy')
     	epoch = lowerbound_list.shape[0]
     	print "Restarting at epoch: " + str(epoch)
     else:
     	lowerbound_list = []
+        testlowerbound_list = []
     	epoch = 0
 
     #	----------------				iterate      			     --------------------
@@ -103,9 +113,16 @@ if __name__=="__main__":
         epoch += 1
         x_train = shuffle(x_train)
         lowerbound, recon_err, KLD = model.iterate(x_train, epoch)
-        print 'epoch ', epoch, 'with objectives = ', lowerbound/n, recon_err/n, KLD/n, "and {0} seconds".format(time.time() - start)
+        testlowerbound = model.getLowerBound(x_valid)
+        print n, n_valid
+        print 'epoch ', epoch, 'with objectives =', lowerbound/n, "testlowerbound =", testlowerbound/n_valid, ",and {0} seconds".format(time.time() - start)
+        print 'kld: ', KLD/n, 'recon_err', recon_err/n
         lowerbound_list = np.append(lowerbound_list, lowerbound/n)
-        if epoch % 5 == 0:
-        	print "saving lowerbound, params"
-        	np.save('results/vae_own/' + sys.argv[1] + '/lowerbound.npy', lowerbound_list)
-        	model.save_parameters("results/vae_own/" + sys.argv[1])
+        testlowerbound_list = np.append(testlowerbound_list,testlowerbound)
+
+        if epoch % 3 == 0:            
+            print "saving lowerbound, testlowerbound, params"
+            np.save('results/vae_own/' + sys.argv[1] + '/lowerbound.npy', lowerbound_list)
+            np.save('results/vae_own/' + sys.argv[1] + '/lowerbound_test.npy', testlowerbound_list)
+            model.save_parameters("results/vae_own/" + sys.argv[1])
+            print "done"

@@ -4,10 +4,11 @@ import theano.tensor as T
 import theano.sparse
 import scipy as sp
 from theano.tensor.shared_randomstreams import RandomStreams
+import matplotlib.pyplot as plt
+from scipy.misc import factorial
 
 from collections import OrderedDict
 import cPickle as pickle
-
 
 class topic_model:
     def __init__(self, voc_size, dimZ, HUe1, HUd1, learning_rate, sigmaInit, batch_size, HUe2=0, HUd2=0):
@@ -151,10 +152,10 @@ class topic_model:
 
             X_batch = X[batches[i]:batches[i+1]]
            
-            lowerbound_doc, recon_err_doc, KLD_doc, y = self.update(X_batch.T, epoch)
-            lowerbound += lowerbound_doc
-            recon_err += recon_err_doc
-            KLD += KLD_doc
+            lowerbound_batch, recon_err_batch, KLD_batch, y = self.update(X_batch.T, epoch)
+            lowerbound += lowerbound_batch
+            recon_err += recon_err_batch
+            KLD += KLD_batch
 
             # if progress != int(50.*i/len(data_x)):
             #     print '='*int(50.*i/len(data_x))+'>'
@@ -215,46 +216,55 @@ class topic_model:
         return y
 
 
-    def calculate_perplexity(self, doc, selected_features=None, means=None):
-        doc = np.array(doc.todense()) #orig
+        
+    def calculate_perplexity(self, doc, selected_features=None, means=None, seen_words=0.5, runs=1):
 
+        # calculates perplexity for one document, currently fills in missing features with 0.
+        doc = np.array(doc.todense())
+        
         if selected_features!=None:
             doc_selected = doc[selected_features] #new
         else:
             doc_selected = doc
 
-        doc_encode = np.zeros_like(doc_selected) #new
+        doc_seen = np.zeros_like(doc)
 
-        for word in range(doc_selected.shape[0]):
-            if doc[word] !=0:
-                doc_encode[word] = np.random.binomial(doc[word], 0.5) #this isnt really cool yet!
+        cs = np.cumsum(doc)
 
-        doc_compare = doc
+        samp = np.random.choice(np.arange(cs[-1]), np.floor(cs[-1]*seen_words), replace=False)
+        for word_no in samp:
+            word_index = np.argmax(cs>word_no)
+            doc_seen[word_index]+=1
+            
 
-        if selected_features!=None:
-            doc_compare[selected_features] = doc_selected - doc_encode #new
-        else:
-            doc_compare[selected_features] = doc_selected - doc_encode #new
+        doc_unseen = doc - doc_seen
 
-        mu, logvar = self.encode(doc_encode)
+        mu, logvar = self.encode(doc_seen)
 
-        y = self.decode(mu, logvar)
+        log_perplexity_doc_vec = 0
 
-        if means!=None:
-            reconstruction = means
-        else:
-            reconstruction = np.zeros_like(doc)
-        e = 1e-12 #perhaps not necessary when using means
+        for i in xrange(runs):
+
+            y = self.decode(mu, logvar)
+
+            if means!=None:
+                reconstruction = means
+            else:
+                reconstruction = np.zeros_like(doc)
+
+            if selected_features!=None:
+                reconstruction[selected_features] = y
+            else:
+                reconstruction = y
+
+            log_perplexity_doc_vec += np.log(reconstruction**doc_unseen * np.exp(-reconstruction) / factorial(doc_unseen))
 
 
-        if selected_features!=None:
-            reconstruction[selected_features] = y
-        else:
-            reconstruction = y
+        log_perplexity_doc = -np.sum(log_perplexity_doc_vec)/float(runs)
+        n_words = np.sum(doc_unseen)
 
-        log_perplexity = -np.mean(-reconstruction + np.multiply(doc_compare, np.log(reconstruction+e)))
 
-        return log_perplexity
+        return log_perplexity_doc, n_words
 
 
     def getLowerBound(self,data):
@@ -265,7 +275,7 @@ class topic_model:
         if batches[-1] != N:
             batches = np.append(batches,N)
 
-        for i in xrange(0,len(batches)-2):
+        for i in xrange(0,len(batches)-1):
             miniBatch = data[batches[i]:batches[i+1]]
             lowerbound += self.lowerbound(x=miniBatch.T)
 

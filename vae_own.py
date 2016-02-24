@@ -4,6 +4,8 @@ import theano.tensor as T
 import theano.sparse
 import scipy as sp
 from theano.tensor.shared_randomstreams import RandomStreams
+import matplotlib.pyplot as plt
+from scipy.misc import factorial
 
 from collections import OrderedDict
 import cPickle as pickle
@@ -80,11 +82,11 @@ class topic_model:
         y = T.nnet.softplus(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
 
         # define lowerbound 
-        KLD = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0))
+        KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
-        recon_err = T.sum(T.sum(-y + x * T.log(y), axis=0))
+        recon_err =  T.sum(T.sum(-y + x * T.log(y),                  axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
-        lowerbound = recon_err - KLD
+        lowerbound = recon_err - KLD*10
 
         gradients = T.grad(lowerbound, self.params.values())
 
@@ -190,38 +192,79 @@ class topic_model:
 
         return y
 
-    def calculate_perplexity(self, doc, selected_features=None, means=None):
+    def calculate_perplexity(self, doc, selected_features=None, means=None, seen_words=0.5, runs=1):
 
         # calculates perplexity for one document, currently fills in missing features with 0.
         doc = np.array(doc.todense())
         
-        if selected_features:
-            doc = doc[selected_features]
-
-        doc_encode = np.zeros_like(doc)
-
-        for word in range(doc.shape[0]):
-            if doc[word] !=0:
-                doc_encode[word] = np.random.binomial(doc[word], 0.5)
-        doc_compare = doc - doc_encode
-
-        mu, logvar = self.encode(doc_encode)
-
-        y = self.decode(mu, logvar)
-
-        if means:
-            reconstruction = means
+        if selected_features!=None:
+            doc_selected = doc[selected_features] #new
         else:
-            reconstruction = np.zeros_like(doc)
+            doc_selected = doc
 
-        if selected_features:
-            reconstruction[selected_features] = y
-        else:
-            reconstruction = y
+        doc_seen = np.zeros_like(doc)
 
-        log_perplexity = -np.mean(-reconstruction + doc_compare * np.log(reconstruction))
+        cs = np.cumsum(doc)
 
-        return log_perplexity
+        samp = np.random.choice(np.arange(cs[-1]), np.floor(cs[-1]*seen_words), replace=False)
+        for word_no in samp:
+            word_index = np.argmax(cs>word_no)
+            doc_seen[word_index]+=1
+            
+
+        doc_unseen = doc - doc_seen
+
+        mu, logvar = self.encode(doc_seen)
+
+        log_perplexity_doc_vec = 0
+
+        total_lambda = 0
+        for i in xrange(runs):
+
+            y = self.decode(mu, logvar)
+
+            if means!=None:
+                reconstruction = means
+            else:
+                reconstruction = np.zeros_like(doc)
+
+            if selected_features!=None:
+                reconstruction[selected_features] = y
+            else:
+                reconstruction = y
+
+
+            # plt.hist(reconstruction, bins=np.logspace(-6, -1, 50))
+            # plt.gca().set_xscale("log")
+            # plt.show()
+            # plt.savefig('latentspace_2')
+            # raw_input()
+
+            # total_lambda+=np.sum(reconstruction)
+            # print reconstruction**doc_unseen * np.exp(-reconstruction) 
+            log_perplexity_doc_vec += (-reconstruction + doc_unseen * np.log(reconstruction) - np.log(factorial(doc_unseen)))/np.float(runs)
+
+        log_perplexity_doc = -np.sum(log_perplexity_doc_vec)
+        n_words = np.sum(doc_unseen)
+
+
+
+        # log_perplexity = -np.sum(-reconstruction + np.multiply(doc_unseen, np.log(reconstruction)))/np.sum(doc_unseen)
+        return log_perplexity_doc, n_words
+
+    def getLowerBound(self,data):
+        """Use this method for example to compute lower bound on testset"""
+        lowerbound = 0
+        [N,dimX] = data.shape
+        batches = np.arange(0,N,self.batch_size)
+        if batches[-1] != N:
+            batches = np.append(batches,N)
+
+        for i in xrange(0,len(batches)-1):
+            miniBatch = data[batches[i]:batches[i+1]]
+            lowerbound += self.lowerbound(x=miniBatch.T)
+
+        return lowerbound
 
     def save_parameters(self, path):
         """Saves parameters"""

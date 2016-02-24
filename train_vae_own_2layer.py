@@ -38,7 +38,6 @@ def parse_config():
 
 
 
-
 if __name__=="__main__":
 
     THEANO_FLAGS=optimizer=None
@@ -75,14 +74,13 @@ if __name__=="__main__":
             print 'loading NY dataset full vocabulary'
             f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
 
-	x = pickle.load(f)
-	f.close()
-	print "converting to csr"
-	x_csc = csc_matrix(x)
-	print 'a'
-	x_train = csc_matrix(x_csc[:trainset_size,:])
-	x_valid = csc_matrix(x_csc[trainset_size:trainset_size+validationset_size,:])
-	x_test = csc_matrix(x_csc[trainset_size+validationset_size:,:])
+    x = pickle.load(f)
+    f.close()
+    print "converting to csr"
+    x_csc = csc_matrix(x)
+    x_train = x_csc[:trainset_size,:]
+    x_valid = x_csc[trainset_size:trainset_size+validationset_size,:]
+    x_test = x_csc[trainset_size+validationset_size:,:]
     n, voc_size = x_train.shape
     print n, "datapoints and", voc_size, "features"
 
@@ -113,7 +111,7 @@ if __name__=="__main__":
         x_train = shuffle(x_train)
         lowerbound, recon_err, KLD = model.iterate(x_train, epoch)
         testlowerbound = model.getLowerBound(x_valid)
-        print 'epoch ', epoch, 'with objectives = ', lowerbound/n, "testlowerbound = ", testlowerbound, ",and {0} seconds".format(time.time() - start)
+        print 'epoch ', epoch, 'with objectives =', lowerbound/n, "testlowerbound =", testlowerbound, ",and {0} seconds".format(time.time() - start)
 
         lowerbound_list = np.append(lowerbound_list, lowerbound/n)
         testlowerbound_list = np.append(testlowerbound_list,testlowerbound)
