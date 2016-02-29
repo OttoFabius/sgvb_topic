@@ -1,86 +1,75 @@
 import numpy as np
-import theano as th
-from loadsave import load_pickle_list, load_pickle_matrix, create_pickle_matrix, create_pickle_list # , load_pickle
-import sys
-import ConfigParser
+from helpfuncs import load_parameters, save_parameters, parse_config, load_dataset
+from vae_1l import topic_model_1layer
+from vae_2l import topic_model_2layer
 import time
-import scipy.sparse as sp
-import VAE, optimizer, generate_params, blocks
-from scipy.io import loadmat, savemat
+from scipy.sparse import csr_matrix, csc_matrix
 import gzip
 import cPickle as pickle
-from scipy.sparse import csc_matrix, csr_matrix
+import scipy.sparse as sp
+from sklearn.utils import shuffle
+import sys
+
+
 
 if __name__=="__main__":
 
-	def parse_config(foldername):
-	    config = ConfigParser.ConfigParser()
-	    config.read(foldername + "/parameters.cfg")
+    # THEANO_FLAGS=optimizer=None
 
-	    dim_h_en_z = [config.getint('parameters','dim_h_en_z_1')]
-	    dim_h_de_x = [config.getint('parameters','dim_h_de_x_1')]
-	    dim_z = config.getint('parameters','dim_z')
-	    L = config.getint('parameters','L')   
-	    iterations = config.getint('parameters','iterations')
-	    learningRate = config.getfloat('parameters','learningRate')
-	    polyak = config.getboolean('parameters','polyak')
-	    batch_size = config.getint('parameters','batch_size')  
-	    trainset_size = config.getint('parameters','trainset_size')  
-	    sparse = config.getboolean('parameters','sparse')
-	    mincount = config.getint('parameters','mincount')  
+    # import warnings
+    # warnings.filterwarnings("ignore")
 
-	    dim_h_en_z_2 = config.getint('parameters','dim_h_en_z_2')
-	    dim_h_de_x_2 = config.getint('parameters','dim_h_de_x_2')
-	    dim_h_en_z_3 = config.getint('parameters','dim_h_en_z_3')
-	    dim_h_de_x_3 = config.getint('parameters','dim_h_de_x_3')
+    argdict = parse_config(sys.argv[1])
 
-	    
-	    if dim_h_en_z_2!=0:
-	    	dim_h_en_z.append(dim_h_en_z_2)
-	    
-	    if dim_h_de_x_2!=0:
-	    	dim_h_de_x.append(dim_h_de_x_2) 
-	   	
-	    if dim_h_en_z_3!=0:
-	    	dim_h_en_z.append(dim_h_en_z_3)
-	    
-	    if dim_h_de_x_3!=0:
-	    	dim_h_de_x.append(dim_h_de_x_3) 
+    # f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+    # x = pickle.load(f)
+    # f.close()
 
-	    return dim_h_en_z, dim_h_de_x, dim_z, L, iterations, learningRate,  polyak, batch_size, trainset_size, sparse, mincount
+    x = load_dataset(argdict)
+    x_csc = csc_matrix(x)
+    x_train = csc_matrix(x_csc[:argdict['trainset_size'],:])
+    x_test = csc_matrix(x_csc[argdict['trainset_size']:argdict['trainset_size']+argdict['testset_size'],:])
+    n, argdict['voc_size'] = x_train.shape
+    n_test = x_test.shape[0]
 
-  #-------------------       		 parse config file       		--------------------
 
-	foldername = "results/vae/" + sys.argv[1]
-	dim_h_en_z, dim_h_de_x, dim_z , L, iterations, learningRate, polyak, batch_size, trainset_size, sparse, mincount = parse_config(foldername)
-	normalization = 'l2'
-	nonlinearity ='relu'
-	type_rec = 'poisson'
-	type_latent = 'gaussian'
+    print "initializing model + graph..."
+    if argdict['HUe2']==0:
+        model = topic_model_1layer(argdict)
+    else:
+        model = topic_model_2layer(argdict)
+    
+    #	----------------		optional: load parameters           --------------------
 
-	#-------------------      		 load dataset		       		--------------------
+    if len(sys.argv) > 2 and sys.argv[2] == "--load":
+        print "loading params for restart"
+    	load_parameters(model, 'results/vae_own/' + sys.argv[1])
+    	lowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound.npy')
+        testlowerbound_list = []
+        testlowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound_test.npy')
+    	epoch = lowerbound_list.shape[0]
+    	print "Restarting at epoch: " + str(epoch)
+    else:
+    	lowerbound_list = []
+        testlowerbound_list = []
+    	epoch = 0
 
-	print "loading dataset"
-	f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+    #	----------------				iterate      			     --------------------
+    print 'iterating'
+    while True:
+        start = time.time()
+        epoch += 1
+        x_train = shuffle(x_train)
+        lowerbound, recon_err, KLD, KLD_train = model.iterate(x_train, epoch)
+        testlowerbound = model.getLowerBound(x_test, epoch)
+        print 'epoch ', epoch, 'with objectives =', lowerbound/n, "testlowerbound =", testlowerbound/n_test, ",and {0} seconds".format(time.time() - start)
+        print 'kld: ', KLD/n, 'kld train: ', KLD_train/n, 'recon_err', recon_err/n
+        lowerbound_list = np.append(lowerbound_list, lowerbound/n)
+        testlowerbound_list = np.append(testlowerbound_list,testlowerbound)
 
-	# f = gzip.open('data/KOS/docwordkos_matrix_' + str(mincount) + '.pklz','rb')
-	x_all = pickle.load(f)
-	f.close()
-	print x_all.shape
-	print "size is ", x_all.data.nbytes
-	print "done"
-	print "converting to csr"
-	x_all = csc_matrix(x_all)
-	print "splitting train-test"
-	x = x_all[:trainset_size,:]
-	n, v = x.shape
-	print "number of datapoints: ", n, "number of features: ", v 
-	x_valid = x_all[trainset_size:,:]
-
-	name_log = foldername + '/log.txt'
-	model = VAE.VAE(n, v, dim_h_en_z=dim_h_en_z, dim_h_de_x=dim_h_de_x, dim_z=dim_z, batch_size=batch_size,
-                nonlinearity=nonlinearity, normalization=normalization, L=L,
-                type_rec=type_rec, type_latent=type_latent, iterations=iterations, learningRate=learningRate, 
-                polyak=polyak, name_log=name_log, seed=20, sparse=sparse)
-	model.fit(x, x_valid)
-
+        if epoch % 10 == 0:            
+            print "saving lowerbound, testlowerbound, params"
+            np.save('results/vae_own/' + sys.argv[1] + '/lowerbound.npy', lowerbound_list)
+            np.save('results/vae_own/' + sys.argv[1] + '/lowerbound_test.npy', testlowerbound_list)
+            save_parameters(model, "results/vae_own/" + sys.argv[1])
+            print "done"

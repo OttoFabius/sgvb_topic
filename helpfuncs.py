@@ -28,9 +28,9 @@ def parse_config(fname):
     argdict['KLD_burnin'] = config.getfloat('parameters','KLD_burnin')
 
     if argdict['dataset_num'] == 0:
-        ardgict['dataset']='kos'
+        argdict['dataset']='kos'
     elif argdict['dataset_num'] == 1:
-        ardgict['dataset']='kos'
+        argdict['dataset']='kos'
     argdict['minfreq'] = config.getint('parameters','minfreq')
     argdict['entselect'] = config.getint('parameters','entselect')
 

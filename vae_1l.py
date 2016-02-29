@@ -69,6 +69,8 @@ class topic_model_1layer:
         H = T.nnet.softplus(H_lin)
 
 
+
+
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
 
@@ -77,6 +79,8 @@ class topic_model_1layer:
         z = mu + T.exp(0.5*logvar)*eps
 
         H_d = T.nnet.softplus(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
+
+
         # y=lambda of Poisson
         y = T.nnet.softplus(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
 
@@ -97,8 +101,6 @@ class topic_model_1layer:
         ###################################################
 
         updates = OrderedDict()
-
-        
 
         gamma = T.sqrt(1 - (1 - self.b2) ** epoch)/(1 - (1 - self.b1)**epoch)
 
@@ -122,9 +124,6 @@ class topic_model_1layer:
 
         self.update = th.function([x, epoch], [lowerbound, recon_err, KLD, KLD_train, y], updates=updates)
         self.lowerbound  = th.function([x, epoch], lowerbound, on_unused_input='ignore')
-
-
-
 
     def encode(self, x):
         """Helper function to compute the encoding of a datapoint or minibatch to z"""

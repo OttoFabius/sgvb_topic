@@ -6,36 +6,34 @@ import scipy as sp
 from theano.tensor.shared_randomstreams import RandomStreams
 import matplotlib.pyplot as plt
 from scipy.misc import factorial
+import ConfigParser
 
 from collections import OrderedDict
 import cPickle as pickle
 
 
 class topic_model:
-    def __init__(self, voc_size, dimZ, HUe1, HUd1, learning_rate, sigmaInit, batch_size, HUe2=0, HUd2=0):
-        """NB dimensions of HU_qx and HU_qd have to match if they merge"""
+    def __init__(self, argdict):
 
-        self.dimZ = dimZ
-        self.learning_rate = th.shared(learning_rate)
-        self.batch_size = batch_size
+        self.dimZ = argdict['dimZ']
+        self.learning_rate = th.shared(argdict['learning_rate'])
+        self.batch_size = argdict['batch_size']
+        sigmaInit = argdict['sigmaInit']
 
+        We1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe1'], argdict['voc_size'])).astype(th.config.floatX), name = 'We1')
+        be1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
-        # initialize weights, biases
+        We_mu = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,argdict['HUe1'])).astype(th.config.floatX), name = 'We_mu')
+        be_mu = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
-        We1 = th.shared(np.random.normal(0,sigmaInit,(HUe1, voc_size)).astype(th.config.floatX), name = 'We1')
-        be1 = th.shared(np.random.normal(0,sigmaInit,(HUe1,1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+        We_var = th.shared(np.random.normal(0,sigmaInit,(self.dimZ, argdict['HUe1'])).astype(th.config.floatX), name = 'We_var')
+        be_var = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
-        We_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,HUe1)).astype(th.config.floatX), name = 'We_mu')
-        be_mu = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
+        Wd1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
+        bd1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
 
-        We_var = th.shared(np.random.normal(0,sigmaInit,(dimZ, HUe1)).astype(th.config.floatX), name = 'We_var')
-        be_var = th.shared(np.random.normal(0,sigmaInit,(dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
-
-        Wd1 = th.shared(np.random.normal(0,sigmaInit,(HUd1, dimZ)).astype(th.config.floatX), name = 'Wd1')
-        bd1 = th.shared(np.random.normal(0,sigmaInit,(HUd1,1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
-
-        Wd2 = th.shared(np.random.normal(0,sigmaInit,(voc_size, HUd1)).astype(th.config.floatX), name = 'Wd2')
-        bd2 = th.shared(np.random.normal(0,sigmaInit,(voc_size,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+        Wd2 = th.shared(np.random.normal(0,sigmaInit,(argdict['voc_size'], argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
+        bd2 = th.shared(np.random.normal(0,sigmaInit,(argdict['voc_size'],1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
 
 
         self.params = OrderedDict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu),  \
@@ -46,6 +44,9 @@ class topic_model:
         self.b2 = 0.001
         self.m = OrderedDict()
         self.v = OrderedDict()
+
+        self.KLD_free = argdict['KLD_free']
+        self.KLD_burnin = argdict['KLD_burnin']
 
         for key,value in self.params.items():
             if 'b' in key:
@@ -62,7 +63,7 @@ class topic_model:
         """ Defines optimization criterion and creates symbolic gradient function"""
         # voc x batch
         x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
-
+        epoch = T.iscalar('epoch')
 
         srng = T.shared_randomstreams.RandomStreams()
 
@@ -82,13 +83,16 @@ class topic_model:
         y = T.nnet.softplus(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
 
         # define lowerbound 
-        KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
+        KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
+        KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+        KLD_train = KLD*KLD_factor
         recon_err =  T.sum(T.sum(-y + x * T.log(y),                  axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
-        lowerbound = recon_err - KLD*10
+        lowerbound_train = recon_err - KLD_train
+        lowerbound = recon_err - KLD
 
-        gradients = T.grad(lowerbound, self.params.values())
+        gradients = T.grad(lowerbound_train, self.params.values())
 
         ###################################################
         # Weight updates
@@ -96,7 +100,7 @@ class topic_model:
 
         updates = OrderedDict()
 
-        epoch = T.iscalar('epoch')
+        
 
         gamma = T.sqrt(1 - (1 - self.b2) ** epoch)/(1 - (1 - self.b1)**epoch)
 
@@ -118,8 +122,8 @@ class topic_model:
             updates[v] = new_v
 
 
-        self.update = th.function([x, epoch], [lowerbound, recon_err, KLD, y], updates=updates)
-        self.lowerbound  = th.function([x], lowerbound)
+        self.update = th.function([x, epoch], [lowerbound, recon_err, KLD, KLD_train, y], updates=updates)
+        self.lowerbound  = th.function([x, epoch], lowerbound, on_unused_input='ignore')
 
 
 
@@ -130,6 +134,7 @@ class topic_model:
         lowerbound = 0
         recon_err = 0
         KLD = 0
+        KLD_train = 0
         progress = -1
 
         [N,dimX] = X.shape
@@ -142,15 +147,16 @@ class topic_model:
 
             X_batch = X[batches[i]:batches[i+1]]
            
-            lowerbound_doc, recon_err_doc, KLD_doc, y = self.update(X_batch.T, epoch)
-            lowerbound += lowerbound_doc
-            recon_err += recon_err_doc
-            KLD += KLD_doc
+            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, y = self.update(X_batch.T, epoch)
+            lowerbound += lowerbound_batch
+            recon_err += recon_err_batch
+            KLD += KLD_batch
+            KLD_train += KLD_train_batch
             # if progress != int(50.*i/len(data_x)):
             #     print '='*int(50.*i/len(data_x))+'>'
             #     progress = int(50.*i/len(data_x))
 
-        return lowerbound, recon_err, KLD
+        return lowerbound, recon_err, KLD, KLD_train
 
     def encode(self, x):
         """Helper function to compute the encoding of a datapoint or minibatch to z"""
@@ -192,7 +198,7 @@ class topic_model:
 
         return y
 
-    def calculate_perplexity(self, doc, selected_features=None, means=None, seen_words=0.5, runs=1):
+    def calculate_perplexity(self, doc, selected_features=None, means=None, seen_words=0.5, samples=1):
 
         # calculates perplexity for one document, currently fills in missing features with 0.
         doc = np.array(doc.todense())
@@ -219,40 +225,52 @@ class topic_model:
         log_perplexity_doc_vec = 0
 
         total_lambda = 0
-        for i in xrange(runs):
+        for i in xrange(samples):
 
             y = self.decode(mu, logvar)
 
             if means!=None:
-                reconstruction = means
+                lambdas_doc = means
             else:
-                reconstruction = np.zeros_like(doc)
+                lambdas_doc = np.zeros_like(doc)
 
             if selected_features!=None:
-                reconstruction[selected_features] = y
+                lambdas_doc[selected_features] = y
             else:
-                reconstruction = y
+                lambdas_doc = y
+
+            mult_params_doc = lambdas_doc/np.sum(lambdas_doc)
 
 
-            # plt.hist(reconstruction, bins=np.logspace(-6, -1, 50))
+
+            # plt.hist(lambdas_doc, bins=np.logspace(-6, -1, 50))
             # plt.gca().set_xscale("log")
             # plt.show()
             # plt.savefig('latentspace_2')
             # raw_input()
 
-            # total_lambda+=np.sum(reconstruction)
-            # print reconstruction**doc_unseen * np.exp(-reconstruction) 
-            log_perplexity_doc_vec += (-reconstruction + doc_unseen * np.log(reconstruction) - np.log(factorial(doc_unseen)))/np.float(runs)
+            # total_lambda+=np.sum(lambdas_doc)
+            # print lambdas_doc**doc_unseen * np.exp(-lambdas_doc) 
+
+            # log_perplexity_doc_vec += (-lambdas_doc + doc_unseen * np.log(lambdas_doc) - np.log(factorial(doc_unseen)))/np.float(runs)
+
+            log_perplexity_doc_vec = doc_unseen * np.log(mult_params_doc)
+
+        # print mu[:5].T
+        # print np.exp(logvar)[:5].T
+
+        # plt.hist(np.exp(logvar), bins = np.linspace(0,2,25))
+        # plt.show()
+
 
         log_perplexity_doc = -np.sum(log_perplexity_doc_vec)
         n_words = np.sum(doc_unseen)
 
 
-
-        # log_perplexity = -np.sum(-reconstruction + np.multiply(doc_unseen, np.log(reconstruction)))/np.sum(doc_unseen)
+        # log_perplexity = -np.sum(-lambdas_doc + np.multiply(doc_unseen, np.log(lambdas_doc)))/np.sum(doc_unseen)
         return log_perplexity_doc, n_words
 
-    def getLowerBound(self,data):
+    def getLowerBound(self,data, epoch):
         """Use this method for example to compute lower bound on testset"""
         lowerbound = 0
         [N,dimX] = data.shape
@@ -262,7 +280,7 @@ class topic_model:
 
         for i in xrange(0,len(batches)-1):
             miniBatch = data[batches[i]:batches[i+1]]
-            lowerbound += self.lowerbound(x=miniBatch.T)
+            lowerbound += self.lowerbound(miniBatch.T, epoch)
 
         return lowerbound
 
@@ -280,12 +298,11 @@ class topic_model:
 
         for name,param in zip(names,params): 
             self.params[name].set_value(param)
-        
+
         m_list = pickle.load(open(path + "/m.pkl", "rb"))
         v_list = pickle.load(open(path + "/v.pkl", "rb"))
 
         for name,m in zip(names,m_list): 
             self.m[name].set_value(m)
-
         for name,v in zip(names,v_list): 
             self.v[name].set_value(v)

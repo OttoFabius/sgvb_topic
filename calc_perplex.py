@@ -1,5 +1,6 @@
-from train_vae_own import parse_config
-import vae_own as vae
+from helpfuncs import load_parameters, save_parameters, parse_config
+from vae_1l import topic_model_1layer
+from vae_2l import topic_model_2layer
 import gzip
 import cPickle as pickle
 from scipy.sparse import csr_matrix, csc_matrix
@@ -11,30 +12,34 @@ import matplotlib.pyplot as plt
 if __name__=="__main__":
 
 
-	THEANO_FLAGS=optimizer=None
+    THEANO_FLAGS=optimizer=None
 
-	import warnings
-	warnings.filterwarnings("ignore")
+    import warnings
+    warnings.filterwarnings("ignore")
 
-    #-------------------       		 parse config file       		--------------------
+     #-------------------       		 parse config file       		--------------------
 
-	latent_variables, HUe1, HUe2, HUd1, HUd2, learning_rate, sigmaInit, batch_size, trainset_size, validationset_size, dataset, minfreq, entselect = parse_config()
-	runs = 5
+    argdict = parse_config(sys.argv[1])
+    samples = 10
 
     #	----------------				load dataset & create model 	   --------------------
-	print "loading dataset"
-	if dataset == 'ny':
-		f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
-	elif dataset == 'kos':
-		f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
-	elif dataset == 'enron':
-		f = gzip.open('data/enron/docwordenron_matrix.pklz','rb')
-	x = pickle.load(f)
-	f.close()
-	x_test = csc_matrix(x[trainset_size:trainset_size+validationset_size,:])
+    print "loading dataset"
+	# if dataset == 'ny':
+	# 	f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
+	# elif dataset == 'kos':
+	# 	f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+	# elif dataset == 'enron':
+	# 	f = gzip.open('data/enron/docwordenron_matrix.pklz','rb')
+	# x = pickle.load(f)
+	# f.close()
+
+    f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+    x = pickle.load(f)
+    f.close()
+    x_test = csc_matrix(x[argdict['trainset_size']:argdict['trainset_size']+argdict['testset_size'],:])
 	
 	# -------------------- selected features: not great for evaluating (?) ----------------
-	if len(sys.argv) > 2 and sys.argv[2] == "--selected_features":
+    if len(sys.argv) > 2 and sys.argv[2] == "--selected_features":
 		print "selected features"
 		if dataset == '':
 			print 'ny'
@@ -51,43 +56,45 @@ if __name__=="__main__":
 			f = gzip.open('data/KOS/docwordkos_means.pklz','rb')
 		word_means = pickle.load(f)
 		f.close()
-	else:
+    else:
 		selected_features = None
 	
-	n, voc_size = x_test.shape
+    n_test, voc_size = x_test.shape
+    argdict['voc_size'] = voc_size
 
+    testlowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound_test.npy')
+    lowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound.npy')
+    print 'train lb=', lowerbound_list[-1]
+    print 'test lb=', testlowerbound_list[-1]/n_test
 
-	if selected_features==None:
+    if selected_features==None:
 		n_features = voc_size
-	else:
+    else:
 		n_features = selected_features.shape[0]
 
-	model = vae.topic_model(n_features, latent_variables, HUe1, HUd1, learning_rate, sigmaInit, batch_size, HUe2=HUe2, HUd2=HUd2)
-	model.load_parameters('results/vae_own/' + sys.argv[1])
+    if argdict['HUe2']==0:
+        model = topic_model_1layer(argdict)
+    else:
+        model = topic_model_2layer(argdict)
+    load_parameters(model, 'results/vae_own/' + sys.argv[1])
 	
-	docnrs = np.arange(1, validationset_size, 1)
-	log_perplexity = 0
-	n_words=0
-
-	means = np.zeros((2,430))
-	# j=0
-
-	print 'evaluating with', runs, 'runs'
-
-	for docnr in docnrs:
-		doc = x_test[docnr,:]
-
-		# mu, logvar = model.encode(np.array(doc.T.todense()))
-		# means[:,j]=mu[(5,32),0]
-		# j+=1
+    docnrs = np.arange(1, argdict['testset_size'], 1)
 
 
-		log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, selected_features=selected_features, runs=runs)
-		log_perplexity += log_perplexity_doc
-		n_words += n_words_doc
+    print 'evaluating with', samples, 'samples per datapoint'
+    perplexity = []
+    for i in xrange(samples):
+    	print i
+        log_perplexity = 0
+        n_words=0
+        for docnr in docnrs:
+			doc = x_test[docnr,:]
+			log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, selected_features=selected_features)
+			log_perplexity += log_perplexity_doc
+			n_words += n_words_doc
 
-	# plt.scatter(means[1,:],means[0,:])
-	# plt.show()
-	print log_perplexity/n_words
-
-
+    	perplexity.append(np.exp(log_perplexity/n_words))
+    print perplexity
+    plt.hist(perplexity)
+    plt.show()
+    print np.mean(perplexity)
