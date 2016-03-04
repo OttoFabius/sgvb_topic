@@ -1,6 +1,7 @@
-from helpfuncs import load_parameters, save_parameters, parse_config
+from helpfuncs import load_parameters, save_parameters, parse_config, load_dataset
 from vae_1l import topic_model_1layer
 from vae_2l import topic_model_2layer
+from vae_lin import topic_model_linear
 import gzip
 import cPickle as pickle
 from scipy.sparse import csr_matrix, csc_matrix
@@ -9,8 +10,11 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 
-if __name__=="__main__":
 
+
+
+
+if __name__=="__main__":
 
     THEANO_FLAGS=optimizer=None
 
@@ -20,22 +24,12 @@ if __name__=="__main__":
      #-------------------       		 parse config file       		--------------------
 
     argdict = parse_config(sys.argv[1])
-    samples = 10
+    samples = 1
 
     #	----------------				load dataset & create model 	   --------------------
     print "loading dataset"
-	# if dataset == 'ny':
-	# 	f = gzip.open('data/NY/docwordny_matrix.pklz','rb')
-	# elif dataset == 'kos':
-	# 	f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
-	# elif dataset == 'enron':
-	# 	f = gzip.open('data/enron/docwordenron_matrix.pklz','rb')
-	# x = pickle.load(f)
-	# f.close()
+    x = load_dataset(argdict)
 
-    f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
-    x = pickle.load(f)
-    f.close()
     x_test = csc_matrix(x[argdict['trainset_size']:argdict['trainset_size']+argdict['testset_size'],:])
 	
 	# -------------------- selected features: not great for evaluating (?) ----------------
@@ -88,10 +82,10 @@ if __name__=="__main__":
         log_perplexity = 0
         n_words=0
         for docnr in docnrs:
-			doc = x_test[docnr,:]
-			log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, selected_features=selected_features)
-			log_perplexity += log_perplexity_doc
-			n_words += n_words_doc
+            doc = x_test[docnr,:]
+            log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, selected_features=selected_features)
+            log_perplexity += log_perplexity_doc
+            n_words += n_words_doc
 
     	perplexity.append(np.exp(log_perplexity/n_words))
     print perplexity

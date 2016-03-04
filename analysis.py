@@ -1,6 +1,7 @@
 import numpy as np
 from vae_1l import topic_model_1layer
 from vae_2l import topic_model_2layer
+from vae_lin import topic_model_linear
 import gzip
 import cPickle as pickle
 import scipy.sparse as sp
@@ -24,7 +25,7 @@ n_test = x_test.shape[0]
 
 #create model
 if argdict['HUe2']==0:
-    model = topic_model_1layer(argdict)
+    model = topic_model_linear(argdict)
 else:
     model = topic_model_2layer(argdict)
 
@@ -32,15 +33,14 @@ load_parameters(model, 'results/vae_own/' + sys.argv[1])
 testlowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound_test.npy')
 lowerbound_list = np.load('results/vae_own/' + sys.argv[1] + '/lowerbound.npy')
 
-plt.plot(-lowerbound_list)
-plt.gca().set_xscale("log")
-plt.gca().set_yscale("log")
+# plt.plot(-lowerbound_list)
+# plt.gca().set_xscale("log")
+# plt.gca().set_yscale("log")
+# plt.show()
+
+mu, logvar = model.encode(x_test.todense().T)
+plt.hist(np.var(mu, 1), bins=np.linspace(0,3,15))
+plt.title('#used latent dimensions')
+plt.xlabel('variance over means of encoded datapoint')
+plt.ylabel('#latent dimensions')
 plt.show()
-
-# for i in xrange(100):
-# 	mu, logvar = model.encode(x_test[i,:].todense().T)
-# 	plt.plot(mu, 'x')
-# 	plt.plot(np.exp(logvar), 'o')
-# 	plt.show()
-
-

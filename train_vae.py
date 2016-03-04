@@ -2,6 +2,7 @@ import numpy as np
 from helpfuncs import load_parameters, save_parameters, parse_config, load_dataset
 from vae_1l import topic_model_1layer
 from vae_2l import topic_model_2layer
+from vae_lin import topic_model_linear
 import time
 from scipy.sparse import csr_matrix, csc_matrix
 import gzip
@@ -9,6 +10,7 @@ import cPickle as pickle
 import scipy.sparse as sp
 from sklearn.utils import shuffle
 import sys
+import matplotlib.pyplot as plt
 
 
 
@@ -27,8 +29,12 @@ if __name__=="__main__":
 
     x = load_dataset(argdict)
     x_csc = csc_matrix(x)
-    x_train = csc_matrix(x_csc[:argdict['trainset_size'],:])
-    x_test = csc_matrix(x_csc[argdict['trainset_size']:argdict['trainset_size']+argdict['testset_size'],:])
+
+
+    n_total, empty = x_csc.shape
+
+    x_train = x_csc[:argdict['trainset_size'],:]
+    x_test = x_csc[n_total-1-argdict['trainset_size']:n_total-1,:] #always same test set
     n, argdict['voc_size'] = x_train.shape
     n_test = x_test.shape[0]
 
@@ -65,7 +71,7 @@ if __name__=="__main__":
         print 'epoch ', epoch, 'with objectives =', lowerbound/n, "testlowerbound =", testlowerbound/n_test, ",and {0} seconds".format(time.time() - start)
         print 'kld: ', KLD/n, 'kld train: ', KLD_train/n, 'recon_err', recon_err/n
         lowerbound_list = np.append(lowerbound_list, lowerbound/n)
-        testlowerbound_list = np.append(testlowerbound_list,testlowerbound)
+        testlowerbound_list = np.append(testlowerbound_list,testlowerbound/n_test)
 
         if epoch % 10 == 0:            
             print "saving lowerbound, testlowerbound, params"

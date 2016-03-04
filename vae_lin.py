@@ -6,21 +6,20 @@ import scipy as sp
 from theano.tensor.shared_randomstreams import RandomStreams
 import matplotlib.pyplot as plt
 from scipy.misc import factorial
-from scipy.sparse import csr_matrix
+
 from collections import OrderedDict
 import cPickle as pickle
 
 
-class topic_model_1layer:
+class topic_model_linear:
     def __init__(self, argdict):
 
         self.dimZ = argdict['dimZ']
         self.learning_rate = th.shared(argdict['learning_rate'])
         self.batch_size = argdict['batch_size']
         sigmaInit = argdict['sigmaInit']
-        self.voc_size = argdict['voc_size']
 
-        We1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
+        We1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe1'], argdict['voc_size'])).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
         We_mu = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,argdict['HUe1'])).astype(th.config.floatX), name = 'We_mu')
@@ -32,8 +31,8 @@ class topic_model_1layer:
         Wd1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
         bd1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
 
-        Wd2 = th.shared(np.random.normal(0,sigmaInit,(self.voc_size, argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
-        bd2 = th.shared(np.random.normal(0,sigmaInit,(self.voc_size,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+        Wd2 = th.shared(np.random.normal(0,sigmaInit,(argdict['voc_size'], argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
+        bd2 = th.shared(np.random.normal(0,sigmaInit,(argdict['voc_size'],1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
 
 
         self.params = OrderedDict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu),  \
@@ -66,8 +65,8 @@ class topic_model_1layer:
 
         srng = T.shared_randomstreams.RandomStreams()
 
-        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
-        H = T.nnet.softplus(H_lin)
+        H = th.sparse.dot(self.params['We1'], x) + self.params['be1']
+
 
 
 
@@ -79,21 +78,18 @@ class topic_model_1layer:
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
         z = mu + T.exp(0.5*logvar)*eps
 
-        H_d = T.nnet.softplus(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
+        H_d = T.dot(self.params['Wd1'], z)  + self.params['bd1']
 
 
-        # softplus for poisson
-        y = T.nnet.softmax(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
+        # y=lambda of Poisson
+        y = T.nnet.softplus(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
 
         # define lowerbound 
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
         KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
         KLD_train = KLD*KLD_factor
-        # recon_err =  T.sum(T.sum(-y + x * T.log(y),                  axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
-
-        recon_err =  T.sum(theano.sparse.sp_sum(x * T.log(y), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
-
+        recon_err =  T.sum(T.sum(-y + x * T.log(y),                  axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
         lowerbound_train = recon_err - KLD_train
         lowerbound = recon_err - KLD
@@ -142,8 +138,7 @@ class topic_model_1layer:
         We_var = self.params["We_var"].get_value()
         be_var = self.params["be_var"].get_value()
 
-        H_lin = np.dot(We1, x) + be1
-        H = np.log(1 + np.exp(H_lin)) #softplus
+        H = np.dot(We1, x) + be1
 
         mu  = np.dot(We_mu, H)  + be_mu
         logvar = np.dot(We_var, H) + be_var
@@ -161,14 +156,12 @@ class topic_model_1layer:
 
         z = np.random.normal(mu, np.exp(logvar))
 
-        H_d_lin = np.dot(Wd1, z) + bd1 
-        H_d = np.log(1 + np.exp(H_d_lin))
+        H_d = np.dot(Wd1, z) + bd1 
 
         y_lin = np.dot(Wd2, H_d)  + bd2
-        y_notnorm = 1/(1+np.exp(-y_lin))
+        y = np.log(1 + np.exp(y_lin))
 
-
-        return y_notnorm
+        return y
 
     def calculate_perplexity(self, doc, selected_features=None, means=None, seen_words=0.5, samples=1):
 
@@ -198,25 +191,33 @@ class topic_model_1layer:
 
         total_lambda = 0
 
-        y_notnorm = self.decode(mu, logvar)
+        for i in xrange(samples):
 
-        if selected_features!=None:
+            y = self.decode(mu, logvar)
+
             if means!=None:
-                mult_params_naive = means
+                lambdas_doc = means
             else:
-                mult_params = np.zeros_like(doc)
-                mult_params[selected_features] = y_notnorm/np.sum(y_notnorm, axis=0)
-        else:
-            mult_params = y_notnorm/np.sum(y_notnorm, axis=0)
-            # print np.sum(y_notnorm, axis=0), y_notnorm.shape
+                lambdas_doc = np.zeros_like(doc)
 
-        print mult_params, 1/mult_params, np.min(1/mult_params)
-        log_perplexity_doc_vec = np.log(1/(mult_params))
-        print log_perplexity_doc_vec
-        raw_input()
-        log_perplexity_doc = np.sum(log_perplexity_doc_vec)
+            if lambdas_doc!=None:
+                if selected_features!=None:
+                    lambdas_doc[selected_features] = y
+                else:
+                    lambdas_doc = y
+            else:
+                if selected_features!=None:
+                    lambdas_doc[selected_features] += y
+                else:
+                    lambdas_doc += y
+
+
+        lambdas_doc_avg = lambdas_doc/samples
+
+        mult_params_doc = lambdas_doc/np.sum(lambdas_doc)
+        log_perplexity_doc_vec = doc_unseen * np.log(mult_params_doc)
+        log_perplexity_doc = -np.sum(log_perplexity_doc_vec)
         n_words = np.sum(doc_unseen)
-
 
         # plt.hist(lambdas_doc, bins=np.logspace(-6, -1, 50))
         # plt.gca().set_xscale("log")
@@ -254,8 +255,8 @@ class topic_model_1layer:
             
 
             X_batch = X[batches[i]:batches[i+1]]
+           
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, y = self.update(X_batch.T, epoch)
-            # print lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
             KLD += KLD_batch
