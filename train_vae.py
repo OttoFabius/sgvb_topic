@@ -24,6 +24,7 @@ if __name__=="__main__":
     argdict = parse_config(sys.argv[1])
 
     x = load_dataset(argdict)
+
     x_csc = csc_matrix(x)
     n_total, empty = x_csc.shape
 

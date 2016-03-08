@@ -119,22 +119,22 @@ def load_dataset(argdict):
 
 def load_used_features(argdict):
 	
-	dataset = argdict['dataset']
-	if argdict['minfreq']>0:
-		print "loading used features with minimum", argdict['minfreq'], 'word frequency'
-		f = gzip.open('data/'+dataset+'/docword_' + str(argdict['minfreq']) + '_indices.pklz','rb')
-		used_features = pickle.load(f)
-	elif argdict['entselect']>0:
-		print "loading used entropy features with", argdict['entselect'], 'features selected on entropy'
-		f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['entselect'])+'_entselect_indices.pklz','rb')	
-		used_features = pickle.load(f)
-	else:
-		print 'all features used'
-		used_features = None
-
-	f.close()
+    dataset = argdict['dataset']
+    if argdict['minfreq']>0:
+        print "loading used features with minimum", argdict['minfreq'], 'word frequency'
+        f = gzip.open('data/'+dataset+'/docword_' + str(argdict['minfreq']) + '_indices.pklz','rb')
+        used_features = pickle.load(f)
+        f.close()
+    elif argdict['entselect']>0:
+        print "loading used entropy features with", argdict['entselect'], 'features selected on entropy'
+        f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['entselect'])+'_entselect_indices.pklz','rb')	
+        used_features = pickle.load(f)
+        f.close()
+    else:
+        print 'all features used'
+        used_features = None
+	
 	print "done"
-
 	return used_features
 
 
@@ -190,7 +190,7 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
 		if int(ws[0])% 100 == 0:
 			print 'doc nr', int(ws[0])
 
-		if docs.shape[0]==n_docs_max:
+		if ws[0]==n_docs_max:
 			break
 		docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
 
