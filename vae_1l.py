@@ -118,7 +118,7 @@ class topic_model_1layer:
             updates[v] = new_v
 
 
-        self.update = th.function([x, epoch], [lowerbound, recon_err, KLD, KLD_train, y], updates=updates)
+        self.update = th.function([x, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates)
         self.lowerbound  = th.function([x, epoch], [lowerbound, recon_err], on_unused_input='ignore')
 
     def encode(self, x):
@@ -227,7 +227,7 @@ class topic_model_1layer:
 
             X_batch = X[batches[i]:batches[i+1]]
 
-            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, y = self.update(X_batch.T, epoch)
+            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, epoch)
 
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
@@ -250,11 +250,11 @@ class topic_model_1layer:
             batches = np.append(batches,N)
 
         for i in xrange(0,len(batches)-1):
-            if batches[i+1]<N:
+            if batches[i+1]<=N:
                 miniBatch = data[batches[i]:batches[i+1]]
                 lb_batch, recon_batch = self.lowerbound(miniBatch.T, epoch)
             else:
-                lb_batch, recon_err = (0, 0) #function doesnt work for non-batch_size :(
+                lb_batch, recon_batch = (0, 0) #function doesnt work for non-batch_size :(
 
             lowerbound += lb_batch
             recon_err += recon_batch

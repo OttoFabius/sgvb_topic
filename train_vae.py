@@ -1,5 +1,5 @@
 import numpy as np
-from helpfuncs import load_parameters, save_parameters, parse_config, load_dataset, perplexity_during_train, load_stats, save_stats
+from helpfuncs import *
 from vae_1l import topic_model_1layer
 from vae_2l import topic_model_2layer
 from vae_lin import topic_model_linear
@@ -32,13 +32,13 @@ if __name__=="__main__":
     n_train, argdict['voc_size'] = x_train.shape
     n_test = argdict['testset_size']
 
+    print 'voc size', argdict['voc_size']
+    used_features = load_used_features(argdict)
     print "initializing model + graph..."
     if argdict['HUe2']==0:
         model = topic_model_1layer(argdict)
     else:
         model = topic_model_2layer(argdict)
-    
-    #	----------------		optional: load parameters           --------------------
 
     if len(sys.argv) > 2 and sys.argv[2] == "--load":
         print "loading params for restart"
@@ -50,35 +50,39 @@ if __name__=="__main__":
     	lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
         recon_train_list, recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
         epoch = 0
+        print "estimating perplexity on test set with", argdict['samples'], "samples"
+        perplexity, perp_sem = perplexity_during_train(model, x_test, argdict)
+        perplexity_list = np.append(perplexity_list, perplexity)
+        perp_sem_list = np.append(perp_sem_list, perp_sem)
+        print "perplexity =", perplexity, 'with', perp_sem, 'sem'
 
-    #	----------------				iterate      			     --------------------
-    print 'iterating'
+
+    print 'iterating' #-------------------------------------------------------------------------------------
 
     while epoch < argdict['max_epochs']:
 
         epoch += 1      
+        if epoch % argdict['save_every'] == 0:    
+            print "saving stats, params at epoch", epoch
+            save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
+                                                                recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
+            save_parameters(model, 'results/vae_own/'+sys.argv[1])
 
-        if epoch % argdict['save_every'] == 1:        
             print "estimating perplexity on test set with", argdict['samples'], "samples"
-            perplexity, perp_sem = perplexity_during_train(model, x_test, argdict)
+            perplexity, perp_sem = perplexity_during_train(model, x_test, argdict,  selected_features=used_features)
             perplexity_list = np.append(perplexity_list, perplexity)
             perp_sem_list = np.append(perp_sem_list, perp_sem)
             print "perplexity =", perplexity, 'with', perp_sem, 'sem'
 
-            print "saving stats, params"
-            save_stats(            'results/vae_own/' + sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
-                                                                recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
-            save_parameters(model, 'results/vae_own/' + sys.argv[1])
 
         start = time.time()  
         x_train = shuffle(x_train)
         lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train, epoch)
         testlowerbound, recon_test = model.getLowerBound(x_test, epoch)
 
-        # print time.time() - start
+        if epoch == 1:
+            print time.time() - start, 'seconds for first epoch'
         print 'epoch ', epoch, 'lb: ', lowerbound/n_train, 'lb test', testlowerbound/(n_test-n_test%argdict['batch_size']), 'recon test', recon_test/(n_test-n_test%argdict['batch_size'])
-
-
 
         lowerbound_list     = np.append(lowerbound_list     , lowerbound    /n_train)
         KLD_list            = np.append(KLD_list            , KLD           /n_train)
@@ -88,3 +92,6 @@ if __name__=="__main__":
         recon_test_list     = np.append(recon_test_list     , recon_test    /(n_test-n_test%argdict['batch_size']))
         testlowerbound_list = np.append(testlowerbound_list , testlowerbound/(n_test-n_test%argdict['batch_size']))
 
+    save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
+                                                                recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
+    save_parameters(model, 'results/vae_own/'+sys.argv[1])

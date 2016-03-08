@@ -3,10 +3,10 @@ import cPickle as pickle
 import numpy as np
 import scipy.io
 from scipy.sparse import csc_matrix, csr_matrix, vstack, lil_matrix
-from sklearn.utils import shuffle
 import time
 import ConfigParser
 import matplotlib.pyplot as plt
+from random import shuffle
 
 def parse_config(fname):
     config = ConfigParser.ConfigParser()
@@ -64,12 +64,7 @@ def save_stats(fname, lowerbound, testlowerbound, KLD, KLD_used, recon_train, re
     np.save(fname + '/perplexity.npy', perplexity)
     np.save(fname + '/perp_sem.npy', perp_sem)
 
-    return
-
-def perplexity_during_train(model, data, argdict):
-
-    if argdict['minfreq'] == 0:
-    	selected_features=None
+def perplexity_during_train(model, data, argdict, selected_features=None):
 
     samples = argdict['samples']
 	
@@ -93,24 +88,24 @@ def perplexity_during_train(model, data, argdict):
     return perp_mean, perp_sem
 
 def load_dataset(argdict):
-
+	dataset = argdict['dataset']
 	if argdict['dataset']=='kos': 
 		if argdict['minfreq']>0:
-			print "loading KOS dataset with minimum", argdict['minfreq'], 'word frequency'
-			f = gzip.open('data/KOS/docwordkos_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
+			print "loading kos dataset with minimum", argdict['minfreq'], 'word frequency'
+			f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
 		elif argdict['entselect']>0:
-			f = gzip.open('data/kos/docwordkos_matrix_'+str(argdict['entselect'])+'_ent.pklz','rb')
-			print "loading KOS dataset with", argdict['entselect'], 'features selected on entropy'
+			f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['entselect'])+'_ent.pklz','rb')
+			print "loading kos dataset with", argdict['entselect'], 'features selected on entropy'
 		else:
-			print 'loading KOS dataset full vocabulary'
-			f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+			print 'loading kos dataset full vocabulary'
+			f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
 
 	elif argdict['dataset']=='ny':
 		if argdict['minfreq']>0:
 			print "loading NY dataset with minimum", argdict['minfreq'], 'word frequency'
-			f = gzip.open('data/ny/docwordny_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
+			f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
 		elif argdict['entselect']>0:
-			f = gzip.open('data/ny/docwordny_matrix_'+str(argdict['entselect'])+'_ent.pklz','rb')
+			f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['entselect'])+'_ent.pklz','rb')
 			print "loading NY dataset with", argdict['entselect'], 'features selected on entropy'
 		else:
 			print 'loading NY dataset full vocabulary'
@@ -122,7 +117,29 @@ def load_dataset(argdict):
 
 	return x
 
-def convert_to_matrix(filename = 'data/ny/docwordny.txt', n_docs_max=3000):
+def load_used_features(argdict):
+	
+	dataset = argdict['dataset']
+	if argdict['minfreq']>0:
+		print "loading used features with minimum", argdict['minfreq'], 'word frequency'
+		f = gzip.open('data/'+dataset+'/docword_' + str(argdict['minfreq']) + '_indices.pklz','rb')
+		used_features = pickle.load(f)
+	elif argdict['entselect']>0:
+		print "loading used entropy features with", argdict['entselect'], 'features selected on entropy'
+		f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['entselect'])+'_entselect_indices.pklz','rb')	
+		used_features = pickle.load(f)
+	else:
+		print 'all features used'
+		used_features = None
+
+	f.close()
+	print "done"
+
+	return used_features
+
+
+def convert_to_matrix(dataset='kos', n_docs_max=3000):
+
 	"""converts text file to numpy matrix for function create_pickle_list.
 	Created for KOS dataset.
 	text file must only contain '.' for the extension and must be structured as follows:
@@ -132,7 +149,7 @@ def convert_to_matrix(filename = 'data/ny/docwordny.txt', n_docs_max=3000):
 
 	each line thereafter contains {doc_id word_id word_freq}"""
 
-
+	filename = 'data/'+dataset+'/docword.txt'
 	f = open(filename)
 	n_docs = int(f.readline())
 	voc_size = int(f.readline())
@@ -150,7 +167,7 @@ def convert_to_matrix(filename = 'data/ny/docwordny.txt', n_docs_max=3000):
 
 	np.save(str(filename).rsplit('.')[0] + '_matrix.npy', docs) 
 
-def convert_to_sparse(filename = 'data/KOS/docwordkos.txt', n_docs_max=3430, min_per_doc=50):
+def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
 	"""converts text file to scipy sparse matrix
 	Created for NY Times dataset.
 	text file must only contain '.' for the extension and must be structured as follows:
@@ -159,7 +176,7 @@ def convert_to_sparse(filename = 'data/KOS/docwordkos.txt', n_docs_max=3430, min
 	third line the total number of words (unused currently)
 
 	each line thereafter contains {doc_id word_id word_freq}"""
-
+	filename = 'data/'+dataset+'/docword.txt'
 	f = open(filename)
 	n_docs = int(f.readline())
 	voc_size = int(f.readline())
@@ -167,74 +184,67 @@ def convert_to_sparse(filename = 'data/KOS/docwordkos.txt', n_docs_max=3430, min
 	f.readline() #total words
 
 	docs 	= lil_matrix((n_docs_max, voc_size))
-	for line in f:
+	for i, line in enumerate(f):
 
 		ws = line.split()	
-		if int(ws[0]) == n_docs_max-1: 
-			print "max docs reached"
+		if int(ws[0])% 100 == 0:
+			print 'doc nr', int(ws[0])
+
+		if docs.shape[0]==n_docs_max:
 			break
-		
 		docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
 
-
+	print 'removing too small docs and shuffling the rest'
 	row_indices = np.ndarray.flatten(np.array(np.nonzero(docs.sum(1)>min_per_doc)[0]))
-
+	shuffle(row_indices)
 	docs_pruned = csc_matrix(docs[row_indices,:])
-	docs_pruned_res = shuffle(docs_pruned) #could do this other wayif too slow when using all data
+	print 'done'
 
-	docs_pruned_lil = lil_matrix(docs_pruned_res)
-	print 'saved as ' + filename.strip('.txt')+'_matrix.pklz'
-
+	docs_pruned_lil = lil_matrix(docs_pruned)
+	
+	print 'saving as ' + filename.strip('.txt')+'_matrix.pklz'
 	f = gzip.open(filename.strip('.txt')+'_matrix.pklz','wb')
 	pickle.dump(docs_pruned_lil, f)
 	f.close()
+	print 'done'
 
-def select_features(mincount=0, dataset='ny'):
+def select_features(mincount=0, dataset='kos'):
 	start = time.time()
 	print"loading pickled data"
 	if dataset=='ny':
 		print "NY dataset"
-		f = gzip.open('data/ny/docwordny_matrix.pklz','rb')
-	elif dataset=='KOS':
-		print "KOS dataset"
-		f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+		f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
+	elif dataset=='kos':
+		print "kos dataset"
+		f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
 	data_orig = pickle.load(f)
 	f.close()
 	print "done"
-	print "old shape", data_orig.shape
-	print "converting to csr"
 
-	print "done"
 	row_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)>mincount)[1]))
 	data_pruned = data_orig[:,row_indices]
 	data_pruned_lil = lil_matrix(data_pruned)
 
-	# save
-	if dataset=='ny':
-		f = gzip.open('data/ny/docwordny_matrix_' + str(mincount) + '.pklz','wb')
-	elif dataset == 'KOS':
-		f = gzip.open('data/KOS/docwordkos_matrix_' + str(mincount) + '.pklz','wb')
+	print 'saving'
+	f = gzip.open('data/'+dataset+'/docword_matrix_' + str(mincount) + '.pklz','wb')
 	pickle.dump(data_pruned_lil, f)
 	f.close()
 
-	if dataset=='ny':
-		f = gzip.open('data/ny/docwordny_' + str(mincount) + '_selected.pklz','wb')
-	elif dataset == 'KOS':
-		f = gzip.open('data/KOS/docwordkos_' + str(mincount) + '_selected.pklz','wb')
+	f = gzip.open('data/'+dataset+'/docword_' + str(mincount) + '_indices.pklz','wb')
 	pickle.dump(row_indices, f)
 	f.close()
 
-	print "new shape = ", data_pruned_lil.shape
+	print "done, new shape = ", data_pruned_lil.shape
 
-def select_features_ent(n_features=1000, dataset='KOS'):
+def select_features_ent(n_features=1000, dataset='kos'):
 	
 	print"loading pickled data"
 	if dataset=='ny':
-		print "NY dataset"
-		f = gzip.open('data/ny/docwordny_matrix.pklz','rb')
-	elif dataset=='KOS':
-		print "KOS dataset"
-		f = gzip.open('data/KOS/docwordkos_matrix.pklz','rb')
+		print "ny dataset"
+		f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
+	elif dataset=='kos':
+		print "kos dataset"
+		f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
 	data = pickle.load(f)
 	f.close()
 
@@ -254,11 +264,11 @@ def select_features_ent(n_features=1000, dataset='KOS'):
 	data_selected = data_csc[:,np.squeeze(indices)]
 
 	if dataset=='ny':
-		f = gzip.open('data/ny/docwordny_' + str(n_features) + 'entselect.pklz','wb')
-		g = gzip.open('data/ny/docwordny_' + str(n_features) + 'entselect_indices.pklz','wb')
-	elif dataset == 'KOS':
-		f = gzip.open('data/KOS/docwordkos_' + str(n_features) + '_entselect.pklz','wb')
-		g = gzip.open('data/KOS/docwordkos_' + str(n_features) + '_entselect_indices.pklz','wb')
+		f = gzip.open('data/'+dataset+'/docword_' + str(n_features) + 'entselect.pklz','wb')
+		g = gzip.open('data/'+dataset+'/docword_' + str(n_features) + 'entselect_indices.pklz','wb')
+	elif dataset == 'kos':
+		f = gzip.open('data/'+dataset+'/docword_' + str(n_features) + '_entselect.pklz','wb')
+		g = gzip.open('data/'+dataset+'/docword_' + str(n_features) + '_entselect_indices.pklz','wb')
 
 	pickle.dump(data_selected, f)
 	pickle.dump(indices, g)
