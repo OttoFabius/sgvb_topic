@@ -65,7 +65,6 @@ class topic_model_2layer:
 
     def createGradientFunctions(self):
         """ Defines optimization criterion and creates symbolic gradient function"""
-        # voc x batch
         x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
         epoch = T.iscalar('epoch')
 
@@ -80,17 +79,13 @@ class topic_model_2layer:
         mu  = T.dot(self.params['We_mu'], H2)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H2) + self.params['be_var']
 
-
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
         z = mu + T.exp(0.5*logvar)*eps
 
         H_d_1 = T.nnet.softplus(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
         H_d_2 = T.nnet.softplus(T.dot(self.params['Wd2'], H_d_1)  + self.params['bd2'])
 
-        # y=lambda of Poisson
         y = T.nnet.softplus(T.dot(self.params['Wd3'], H_d_2)  + self.params['bd3'])
-
-        # define lowerbound 
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
         KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
@@ -129,7 +124,7 @@ class topic_model_2layer:
 
 
         self.update = th.function([x, epoch], [lowerbound, recon_err, KLD, KLD_train, y], updates=updates)
-        self.lowerbound  = th.function([x, epoch], lowerbound, on_unused_input='ignore')
+        self.lowerbound  = th.function([x, epoch], [lowerbound, recon_err], on_unused_input='ignore')
 
     def encode(self, x):
         """Helper function to compute the encoding of a datapoint or minibatch to z"""
@@ -185,8 +180,6 @@ class topic_model_2layer:
 
         
     def calculate_perplexity(self, doc, selected_features=None, means=None, seen_words=0.5, samples=1):
-
-        # calculates perplexity for one document, currently fills in missing features with 0.
         doc = np.array(doc.todense())
         
         if selected_features!=None:
@@ -240,21 +233,6 @@ class topic_model_2layer:
         log_perplexity_doc = -np.sum(log_perplexity_doc_vec)
         n_words = np.sum(doc_unseen)
 
-        # plt.hist(lambdas_doc, bins=np.logspace(-6, -1, 50))
-        # plt.gca().set_xscale("log")
-        # plt.show()
-        # plt.savefig('latentspace_2')
-        # raw_input()
-
-        # total_lambda+=np.sum(lambdas_doc)
-        # print lambdas_doc**doc_unseen * np.exp(-lambdas_doc) 
-
-        # print mu[:5].T
-        # print np.exp(logvar)[:5].T
-
-        # plt.hist(np.exp(logvar), bins = np.linspace(0,2,25))
-        # plt.show(
-
         return log_perplexity_doc, n_words
 
 
@@ -293,13 +271,18 @@ class topic_model_2layer:
     def getLowerBound(self,data, epoch):
         """Use this method for example to compute lower bound on testset"""
         lowerbound = 0
+        recon_err = 0
         [N,dimX] = data.shape
         batches = np.arange(0,N,self.batch_size)
         if batches[-1] != N:
             batches = np.append(batches,N)
-
         for i in xrange(0,len(batches)-1):
-            miniBatch = data[batches[i]:batches[i+1]]
-            lowerbound += self.lowerbound(miniBatch.T, epoch)
+            if batches[i+1]<N:
+                miniBatch = data[batches[i]:batches[i+1]]
+                lb_batch, recon_batch = self.lowerbound(miniBatch.T, epoch)
+            else:
+                lb_batch, recon_err = (0, 0) #function doesnt work for non-batch_size :()
 
-        return lowerbound
+            lowerbound += lb_batch
+            recon_err += recon_batch
+        return lowerbound, recon_err

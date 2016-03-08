@@ -59,8 +59,7 @@ class topic_model_1layer:
         self.createGradientFunctions()
 
     def createGradientFunctions(self):
-        """ Defines optimization criterion and creates symbolic gradient function"""
-        # voc x batch
+
         x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
         epoch = T.iscalar('epoch')
 
@@ -68,9 +67,6 @@ class topic_model_1layer:
 
         H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
         H = T.nnet.softplus(H_lin)
-
-
-
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
@@ -81,16 +77,12 @@ class topic_model_1layer:
 
         H_d = T.nnet.softplus(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
 
-
-        # softplus for poisson
-        y = T.nnet.softmax(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
-
-        # define lowerbound 
+        y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
+        y = y_notnorm/T.sum(y_notnorm, axis=0)
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
-        KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
         KLD_train = KLD*KLD_factor
-        # recon_err =  T.sum(T.sum(-y + x * T.log(y),                  axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
         recon_err =  T.sum(theano.sparse.sp_sum(x * T.log(y), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
@@ -127,7 +119,7 @@ class topic_model_1layer:
 
 
         self.update = th.function([x, epoch], [lowerbound, recon_err, KLD, KLD_train, y], updates=updates)
-        self.lowerbound  = th.function([x, epoch], lowerbound, on_unused_input='ignore')
+        self.lowerbound  = th.function([x, epoch], [lowerbound, recon_err], on_unused_input='ignore')
 
     def encode(self, x):
         """Helper function to compute the encoding of a datapoint or minibatch to z"""
@@ -143,7 +135,7 @@ class topic_model_1layer:
         be_var = self.params["be_var"].get_value()
 
         H_lin = np.dot(We1, x) + be1
-        H = np.log(1 + np.exp(H_lin)) #softplus
+        H = np.log(1 + np.exp(H_lin))
 
         mu  = np.dot(We_mu, H)  + be_mu
         logvar = np.dot(We_var, H) + be_var
@@ -165,14 +157,13 @@ class topic_model_1layer:
         H_d = np.log(1 + np.exp(H_d_lin))
 
         y_lin = np.dot(Wd2, H_d)  + bd2
-        y_notnorm = 1/(1+np.exp(-y_lin))
+        y_notnorm = 1./(1.+np.exp(-y_lin))
 
 
         return y_notnorm
 
     def calculate_perplexity(self, doc, selected_features=None, means=None, seen_words=0.5, samples=1):
 
-        # calculates perplexity for one document, currently fills in missing features with 0.
         doc = np.array(doc.todense())
         
         if selected_features!=None:
@@ -208,30 +199,11 @@ class topic_model_1layer:
                 mult_params[selected_features] = y_notnorm/np.sum(y_notnorm, axis=0)
         else:
             mult_params = y_notnorm/np.sum(y_notnorm, axis=0)
-            # print np.sum(y_notnorm, axis=0), y_notnorm.shape
 
-        print mult_params, 1/mult_params, np.min(1/mult_params)
-        log_perplexity_doc_vec = np.log(1/(mult_params))
-        print log_perplexity_doc_vec
-        raw_input()
-        log_perplexity_doc = np.sum(log_perplexity_doc_vec)
+
+        log_perplexity_doc = np.sum(doc_unseen*np.log(mult_params))
+
         n_words = np.sum(doc_unseen)
-
-
-        # plt.hist(lambdas_doc, bins=np.logspace(-6, -1, 50))
-        # plt.gca().set_xscale("log")
-        # plt.show()
-        # plt.savefig('latentspace_2')
-        # raw_input()
-
-        # total_lambda+=np.sum(lambdas_doc)
-        # print lambdas_doc**doc_unseen * np.exp(-lambdas_doc) 
-
-        # print mu[:5].T
-        # print np.exp(logvar)[:5].T
-
-        # plt.hist(np.exp(logvar), bins = np.linspace(0,2,25))
-        # plt.show(
 
         return log_perplexity_doc, n_words
 
@@ -254,8 +226,9 @@ class topic_model_1layer:
             
 
             X_batch = X[batches[i]:batches[i+1]]
+
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, y = self.update(X_batch.T, epoch)
-            # print lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
+
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
             KLD += KLD_batch
@@ -266,16 +239,24 @@ class topic_model_1layer:
 
         return lowerbound, recon_err, KLD, KLD_train
 
-    def getLowerBound(self,data, epoch):
+    def getLowerBound(self,data,epoch):
         """Use this method for example to compute lower bound on testset"""
         lowerbound = 0
+        recon_err = 0
         [N,dimX] = data.shape
+
         batches = np.arange(0,N,self.batch_size)
         if batches[-1] != N:
             batches = np.append(batches,N)
 
         for i in xrange(0,len(batches)-1):
-            miniBatch = data[batches[i]:batches[i+1]]
-            lowerbound += self.lowerbound(miniBatch.T, epoch)
+            if batches[i+1]<N:
+                miniBatch = data[batches[i]:batches[i+1]]
+                lb_batch, recon_batch = self.lowerbound(miniBatch.T, epoch)
+            else:
+                lb_batch, recon_err = (0, 0) #function doesnt work for non-batch_size :(
 
-        return lowerbound
+            lowerbound += lb_batch
+            recon_err += recon_batch
+
+        return lowerbound, recon_err
