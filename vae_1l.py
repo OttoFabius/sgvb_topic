@@ -9,6 +9,8 @@ from scipy.misc import factorial
 from scipy.sparse import csr_matrix
 from collections import OrderedDict
 import cPickle as pickle
+import math
+from scipy.sparse import csr_matrix, csc_matrix
 
 
 class topic_model_1layer:
@@ -20,20 +22,20 @@ class topic_model_1layer:
         sigmaInit = argdict['sigmaInit']
         self.voc_size = argdict['voc_size']
 
-        We1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
-        be1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+        We1 = th.shared(np.random.normal(0,1./np.sqrt(self.voc_size),(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
+        be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
-        We_mu = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,argdict['HUe1'])).astype(th.config.floatX), name = 'We_mu')
-        be_mu = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
+        We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(self.dimZ,argdict['HUe1'])).astype(th.config.floatX), name = 'We_mu')
+        be_mu = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
-        We_var = th.shared(np.random.normal(0,sigmaInit,(self.dimZ, argdict['HUe1'])).astype(th.config.floatX), name = 'We_var')
-        be_var = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
+        We_var = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(self.dimZ, argdict['HUe1'])).astype(th.config.floatX), name = 'We_var')
+        be_var = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
-        Wd1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
-        bd1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
+        Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
+        bd1 = th.shared(np.random.normal(0,1,(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
 
-        Wd2 = th.shared(np.random.normal(0,sigmaInit,(self.voc_size, argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
-        bd2 = th.shared(np.random.normal(0,sigmaInit,(self.voc_size,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+        Wd2 = th.shared(np.random.normal(0,1/np.sqrt(float(argdict['HUd1'])),(self.voc_size, argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
+        bd2 = th.shared(np.random.normal(0,1,(self.voc_size,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
 
 
         self.params = OrderedDict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu),  \
@@ -48,6 +50,8 @@ class topic_model_1layer:
         self.KLD_free = argdict['KLD_free']
         self.KLD_burnin = argdict['KLD_burnin']
 
+
+
         for key,value in self.params.items():
             if 'b' in key:
                 self.m[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='m_' + key, broadcastable=(False,True))
@@ -55,6 +59,7 @@ class topic_model_1layer:
             else:
                 self.m[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='m_' + key)
                 self.v[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='v_' + key)
+
 
         self.createGradientFunctions()
 
@@ -66,7 +71,7 @@ class topic_model_1layer:
         srng = T.shared_randomstreams.RandomStreams()
 
         H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
-        H = T.nnet.softplus(H_lin)
+        H = T.tanh(H_lin)
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
@@ -75,7 +80,7 @@ class topic_model_1layer:
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
         z = mu + T.exp(0.5*logvar)*eps
 
-        H_d = T.nnet.softplus(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
+        H_d = T.tanh(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
 
         y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
         y = y_notnorm/T.sum(y_notnorm, axis=0)
@@ -84,8 +89,16 @@ class topic_model_1layer:
         KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
         KLD_train = KLD*KLD_factor
 
-        recon_err =  T.sum(theano.sparse.sp_sum(x * T.log(y), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
+
+        recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+        # recon_err =  T.sum(theano.sparse.sp_sum(theano.sparse.basic.mul(x, T.log(y)), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+
+
+        # logx = theano.sparse.structured_log(x)
+        # loglogy = T.log(-T.log(y))
+        # xlogy = T.exp(theano.sparse.basic.add(logx, -loglogy))
+        # recon_err =  T.sum(T.sum(xlogy, axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
         lowerbound_train = recon_err - KLD_train
         lowerbound = recon_err - KLD
@@ -107,12 +120,13 @@ class topic_model_1layer:
             new_m = self.b1 * gradient + (1 - self.b1) * m
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v
             
-            if i%2 == 0:
-                updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20) 
-            else:
-                parameter_norm = parameter / T.sqrt(T.sum(T.sqr(parameter), axis=1, keepdims=True))
-                updates[parameter] = parameter_norm + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
-                
+            # if i%2 == 0:
+            #     updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20) 
+            # else:
+            #     parameter_norm = parameter / T.sqrt(T.sum(T.sqr(parameter), axis=1, keepdims=True))
+            #     updates[parameter] = parameter_norm + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
+
+            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
 
             updates[m] = new_m
             updates[v] = new_v
@@ -135,7 +149,7 @@ class topic_model_1layer:
         be_var = self.params["be_var"].get_value()
 
         H_lin = np.dot(We1, x) + be1
-        H = np.log(1 + np.exp(H_lin))
+        H = (np.exp(H_lin)-np.exp(-H_lin))/(np.exp(H_lin)+np.exp(-H_lin))
 
         mu  = np.dot(We_mu, H)  + be_mu
         logvar = np.dot(We_var, H) + be_var
@@ -154,7 +168,8 @@ class topic_model_1layer:
         z = np.random.normal(mu, np.exp(logvar))
 
         H_d_lin = np.dot(Wd1, z) + bd1 
-        H_d = np.log(1 + np.exp(H_d_lin))
+
+        H_d = (np.exp(H_d_lin)-np.exp(-H_d_lin))/(np.exp(H_d_lin)+np.exp(-H_d_lin))
 
         y_lin = np.dot(Wd2, H_d)  + bd2
         y_notnorm = 1./(1.+np.exp(-y_lin))
@@ -180,14 +195,11 @@ class topic_model_1layer:
             word_index = np.argmax(cs>word_no)
             doc_seen[word_index]+=1
             
+        log_perplexity_doc_vec = 0
+        total_lambda = 0
 
         doc_unseen = doc - doc_seen
-
         mu, logvar = self.encode(doc_seen)
-
-        log_perplexity_doc_vec = 0
-
-        total_lambda = 0
 
         y_notnorm = self.decode(mu, logvar)
 
@@ -198,8 +210,7 @@ class topic_model_1layer:
                 mult_params = np.zeros_like(doc)
                 mult_params[selected_features] = y_notnorm/np.sum(y_notnorm, axis=0)
         else:
-            mult_params = y_notnorm/np.sum(y_notnorm, axis=0)
-
+            mult_params = y_notnorm/np.sum(y_notnorm)
 
         log_perplexity_doc = np.sum(doc_unseen*np.log(mult_params))
 
@@ -250,7 +261,7 @@ class topic_model_1layer:
             batches = np.append(batches,N)
 
         for i in xrange(0,len(batches)-1):
-            if batches[i+1]<=N:
+            if batches[i+1]<N:
                 miniBatch = data[batches[i]:batches[i+1]]
                 lb_batch, recon_batch = self.lowerbound(miniBatch.T, epoch)
             else:

@@ -33,7 +33,7 @@ if __name__=="__main__":
         model = topic_model_2layer(argdict)
     load_parameters(model, 'results/vae_own/' + sys.argv[1])
 
-    print 'evaluating with', argdict['[samples'], 'samples per datapoint'
+    print 'evaluating with', argdict['samples'], 'samples per datapoint'
     perp_mean, perp_std = perplexity_during_train(model, x_test, argdict)
 
     print perp_mean, perp_std
