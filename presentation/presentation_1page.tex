@@ -1,0 +1,52 @@
+\documentclass{beamer}
+
+\mode<presentation> {
+
+\usetheme{default}
+%\usetheme{Rochester}
+%\usecolortheme{lily}
+
+\setbeamertemplate{footline}[page number] 
+\beamertemplatenavigationsymbolsempty
+\setbeamertemplate{bibliography item}{} %Remove icons in bibliography
+}
+
+\usepackage{graphicx} % Allows including images
+\usepackage{amsmath}
+\usepackage{lmodern}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{wrapfig}
+
+
+
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+
+\lstset{
+    language=[5.0]Lua,
+    basicstyle=\fontsize{11}{9},
+    sensitive=true,
+    breaklines=true,
+    tabsize=2
+}
+
+
+
+\date{\today} % Date, can be changed to a custom date
+
+\begin{document}
+
+
+\begin{frame}
+\frametitle{SGVB Topic Modelling}
+\begin{itemize}
+\item{Model defined and implemented}
+\item{The two things we are working towards first are (1) Evaluate models such that they can be compared to state of the art (DEF) and (2) find best version of current model.}
+\item{If results are good, perhaps work on some application/demonstration. If not, perhaps try stochastic latent variables.}
+\end{itemize}
+
+\end{frame}
+
+
+\end{document}

@@ -10,3 +10,12 @@
 *.py~
 *.pyc
 *.txt~
+*.npy
+*.state
+*.npy
+*.png
+*.nav
+*.out
+*.snm
+*.dvi
+*.toc

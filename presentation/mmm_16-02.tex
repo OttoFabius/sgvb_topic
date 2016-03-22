@@ -1,0 +1,126 @@
+\documentclass{beamer}
+
+\mode<presentation> {
+
+\usetheme{default}
+%\usetheme{Rochester}
+%\usecolortheme{lily}
+
+\setbeamertemplate{footline}[page number] 
+\beamertemplatenavigationsymbolsempty
+\setbeamertemplate{bibliography item}{} %Remove icons in bibliography
+}
+
+\usepackage{graphicx} % Allows including images
+\usepackage{amsmath}
+\usepackage{lmodern}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{wrapfig}
+\usepackage{hyperref}
+
+
+
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+
+\lstset{
+    language=[5.0]Lua,
+    basicstyle=\fontsize{11}{9},
+    sensitive=true,
+    breaklines=true,
+    tabsize=2
+}
+
+%----------------------------------------------------------------------------------------
+%	TITLE PAGE
+%----------------------------------------------------------------------------------------
+
+\title[SGVB_topic]{SGVB Topic Modelling} 
+
+\author{Otto Fabius} 
+\institute[UvA] 
+{University of Amsterdam \\
+Supervisor: P.Putzky \\ 
+Co-Supervisors: M. Welling, D.P. Kingma
+\medskip
+}
+\date{\today} % Date, can be changed to a custom date
+
+\begin{document}
+
+\begin{frame}
+\titlepage % Print the title page as the first slide
+\end{frame}
+
+
+%----------------------------------------------------------------------------------------
+%	PRESENTATION SLIDES
+%----------------------------------------------------------------------------------------
+
+\begin{frame}
+\frametitle{Perplexity - what we did}
+\begin{itemize}
+\item{Perform inference (=get latent variables/topic distribution $p(z|d_n^{a})$)  given 50\% (part a) of the document }
+\item{Calculate distribution over word probabilities  $p(w_{in}|z_n, \phi)$ by sampling from the topic distributon $p(z_n|d_n^{a})$}
+\item{Use other 50\% of the document (part b) to calculate per-word perplexity: $-\frac{1}{I}\sum_{i=1}^{I}(-p(w_{in}|z_n, \phi)+ (w_{in}\log(p(w_{in}|z_n, \phi))$}
+\item{In our case: $\frac{1}{I}\sum_{i=I}^N\log(\frac{\lambda_i^{d_{b}i} \cdot e^{-\lambda_i}}{d_{b}i!}))$}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Comparing LDA to VAE (per-word perplexity)}
+\begin{itemize}
+\item{for LDA: $p(w_{in}|d_i, model) = \sum_k w_n^{(k)}\log(\pi_n^{(k)})$}
+\item{So first convert our Poission output distribution to Multinomial: $\pi^{(k)}_{in} = \frac{\lambda_{in}^{(k)}}{\sum_k \lambda_{in}^{(k)}}$}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Results - perplexity}
+\begin{itemize}
+\item{for KOS +- 1500 on test set}
+\item{VAE topic models: not better than 2100, and it doesnt get better than a linear model on the test set!}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Perplexity calculation as in DEF:}
+For each held-out document $d_n$:
+\begin{itemize}
+\item{Perform inference (=get latent variables/topic distribution $p(z|d_n^{10\%})$)  given 10\% of the document}
+\item{Calculate distribution over word probabilities  $p(w_{in}|z_n, \phi)$ by sampling from the topic distributon $p(z_n|d_n^{10\%})$}
+\item{Use other 90\% of the document to calculate per-word perplexity: $-\frac{1}{I}\sum_{i=1}^{I}(-p(w_{in}|z_n, \phi)+ (w_{in}\log(p(w_{in}|z_n, \phi))$}
+\item{In our case: $\frac{1}{I}\sum_{i=I}^N\log(\frac{\lambda_i^{d_{90\%}i} \cdot e^{-\lambda_i}}{d_{90\%}i!}))$}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{So why do VAE models perform worse - so far?}
+\begin{itemize}
+\item{Not enough data for a "deep" learning approach? Most input units are trained on 10-100 non-zero entries in the data (in MNIST most have $>10k$). Overfitting also seems to become a problem. }
+\item{Perhaps compounded by a low amount of structure in the data.}
+\item{Because LDA has multiple layers of stochasticity?}
+\item{What structural information are we unable to learn that LDA can?}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{So why do VAE models perform worse - so far?}
+\includegraphics[width=10cm]{word_occurrences}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{So why do VAE models perform worse - so far?}
+\includegraphics[width=10cm]{latent_dims_used}
+\end{frame}
+
+\begin{frame}
+\frametitle{So why do VAE models perform worse - so far?}
+\includegraphics[width=10cm]{latent_dims_usedonelayer}
+\end{frame}
+
+\end{document}

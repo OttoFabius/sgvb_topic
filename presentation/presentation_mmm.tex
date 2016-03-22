@@ -58,95 +58,29 @@ Co-Supervisors: M. Welling, D.P. Kingma
 %----------------------------------------------------------------------------------------
 
 \begin{frame}
-\frametitle{Intro}
+\frametitle{Current Status}
 \begin{itemize}
-\item{Latent Dirichlet Allocation\footnote{Blei, David M., Andrew Y. Ng, and Michael I. Jordan. "Latent dirichlet allocation." the Journal of machine Learning research 3 (2003): 993-1022.} is a widely used method for topic modelling}
-\item{LDA performs inference over the distribution of topics underlying a document}
-\item{Recent advances in large-scale inference methods enable similar, yet more powerful models}
+\item{Implemented LDA for baseline comparison}
+\item{Implemented current version of VAE topic model}
+\item{Trained a few VAE topic models on small dataset (KOS) and large dataset (NYT)}
+\item{Implemented perplexity calculation as in DEF (state-of-the-art)}
 \end{itemize}
 
 \end{frame}
 
-\section{LDA}
 
 \begin{frame}
-\frametitle{Latent Dirichlet Allocation (LDA)}
-\begin{wrapfigure}[0]{r}{0.5\textwidth}
-  \centering
-    \begin{tikzpicture}[node distance = 1.5cm]
-        \node[obs] (x) {$x^{(ik)}$}; 
-
-        \node[latent, above=of x] (z) {$z^{(ik)}$}; 
-        
-        \node[obs, above=of z] (d) {$\theta^{(i)}$}; 
-
-        \node[const, right=of d] (a) {$\alpha$} ;
-        \node[const, right=of z] (th) {$\beta$} ;
-		
-		\edge {a} {d};
-        \edge {z} {x};
-        \edge {d} {z};
-        \edge {th} {x};
-
-		
-		\plate {xz} {(x)(z)} {$k = 1...K$};
-        \plate {xzd} {(x)(z)(d)(xz)} {$i = 1...N$};
-	  
-    \end{tikzpicture}
-
-\caption{Graphical Model of LDA}
-\label{lda}
-\end{wrapfigure}
-
-
-- Generative model\\
-- Dirichlet prior on $\theta$\\ 
-- $p(z^{(ik)}) = \text{Mult}(\theta)$ \\
-- $p(x^{(ik)}|z^{(ik)}) = \text{Mult}(\beta)$\\ 
-- Used to infer a distribution over topics $z$, \\
-\hspace{1.6mm} given a document.
-\vspace{70mm}
+\frametitle{In progress}
+\begin{itemize}
+\item{Implementing DEF perplexity calculation method for LDA}
+\item{Figuring out how to compare to DEF}
 \end{frame}
 
 \begin{frame}
-\frametitle{SGVB Topic Model}
-\begin{wrapfigure}[0]{r}{0.5\textwidth}
-  \centering
-    \begin{tikzpicture}[node distance = 1.5cm]
-        \node[obs] (x) {$x^{(ik)}$}; 
-
-        \node[latent, above=of x] (z) {$z^{(ik)}$}; 
-        
-        \node[obs, above=of z] (d) {$d^{(i)}$}; 
-
-        \node[const, right=of z] (th) {$\theta$} ;
-        \node[const, left=of z] (ph) {$\phi$};
-
-        \edge {z} {x};
-        \edge {d} {z};
-        \edge {th} {z};
-        \edge {th} {x};
-
-        \edge [dashed] {ph} {z}
-        \edge [dashed,bend right] {d} {z}
-        \edge [dashed,bend left] {x} {z}
-		
-		\plate {xz} {(x)(z)} {$k = 1...K$};
-        \plate {xzd} {(x)(z)(d)(xz)} {$i = 1...N$};
-
-    \end{tikzpicture}
-
-\caption{Graphical Model of SGVB Topic Modelling}
-\label{sgvb_topic}
-\end{wrapfigure}
-
-- Similar Graphical Model \\
-- Uses SGVB: A scalable stochastic \\
-\hspace{5mm} gradient optimization method for \\
-\hspace{5mm} inference.\footnote{Kingma, D. P. and Welling, M. Auto-encoding variational
-Bayes. Proceedings of the International Conference on
-Learning Representations (ICLR), 2014.}
-\vspace{100mm}
+\frametitle{Inference method as in DEF:}
+\begin{itemize}
+\item{perform inference (=get topic distribution) for 10\% of each held-out document}
+\item{Calculate distribution over word probability by sampling from the topic distributon $p(w|z, \phi)$}
 \end{frame}
 
 \begin{frame}{}
