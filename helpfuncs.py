@@ -67,10 +67,11 @@ def save_stats(fname, lowerbound, testlowerbound, KLD, KLD_used, recon_train, re
 def perplexity_during_train(model, data, argdict, selected_features=None):
 
     samples = argdict['samples']
-	
+
+
     docnrs = np.arange(1, argdict['testset_size'], 1)
 
-    perplexity = []
+    log_perplexity_list = []
     for i in xrange(samples):
         log_perplexity = 0
         n_words=0
@@ -81,11 +82,25 @@ def perplexity_during_train(model, data, argdict, selected_features=None):
             log_perplexity += log_perplexity_doc
             n_words += n_words_doc
 
-    	perplexity.append(np.exp(-log_perplexity/n_words))
+    	log_perplexity_list.append(-log_perplexity/n_words)
+    perplexity = np.exp(np.array(log_perplexity_list))
     perp_mean = np.mean(perplexity)
     perp_sem = np.std(perplexity)/np.sqrt(samples)
 
     return perp_mean, perp_sem
+
+def perplexity_rest(data_rest):
+
+    means = csc_matrix.mean(data_rest, axis=0)
+
+    mult_params = np.array(means/np.sum(means))[0,:]
+    perp=0
+    for doc in xrange(data_rest.shape[0]):
+
+        perp_doc = np.sum(data_rest[doc, :]*np.log(mult_params))
+        perp+=perp_doc
+    return perp
+
 
 def load_dataset(argdict):
 	dataset = argdict['dataset']
@@ -209,32 +224,39 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
 	print 'done'
 
 def select_features(mincount=0, dataset='kos'):
-	start = time.time()
-	print"loading pickled data"
-	if dataset=='ny':
-		print "NY dataset"
-		f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
-	elif dataset=='kos':
-		print "kos dataset"
-		f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
-	data_orig = pickle.load(f)
-	f.close()
-	print "done"
+    start = time.time()
+    print"loading pickled data"
+    if dataset=='ny':
+    	print "NY dataset"
+    	f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
+    elif dataset=='kos':
+    	print "kos dataset"
+    	f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
+    data_orig = pickle.load(f)
+    f.close()
+    print "done"
 
-	row_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)>mincount)[1]))
-	data_pruned = data_orig[:,row_indices]
-	data_pruned_lil = lil_matrix(data_pruned)
+    row_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)>mincount)[1]))
+    rest_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)<=mincount)[1]))
+    data_pruned = data_orig[:,row_indices]
+    data_pruned_lil = lil_matrix(data_pruned)
+    data_rest = data_orig[:,rest_indices]
+    data_rest_lil = lil_matrix(data_rest)
 
-	print 'saving'
-	f = gzip.open('data/'+dataset+'/docword_matrix_' + str(mincount) + '.pklz','wb')
-	pickle.dump(data_pruned_lil, f)
-	f.close()
+    print 'saving'
+    f = gzip.open('data/'+dataset+'/docword_matrix_' + str(mincount) + '.pklz','wb')
+    pickle.dump(data_pruned_lil, f)
+    f.close()
 
-	f = gzip.open('data/'+dataset+'/docword_' + str(mincount) + '_indices.pklz','wb')
-	pickle.dump(row_indices, f)
-	f.close()
+    f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','wb')
+    pickle.dump(data_rest_lil, f)
+    f.close()
 
-	print "done, new shape = ", data_pruned_lil.shape
+    f = gzip.open('data/'+dataset+'/docword_' + str(mincount) + '_indices.pklz','wb')
+    pickle.dump(row_indices, f)
+    f.close()
+
+    print "done, new shape = ", data_pruned_lil.shape
 
 def select_features_ent(n_features=1000, dataset='kos'):
 	

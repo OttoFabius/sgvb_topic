@@ -15,7 +15,7 @@ from scipy.special import gammaln
 def relu(x):
     return T.switch(x<0,0,x)
         
-class topic_model_1layer:
+class topic_model_20layer:
     def __init__(self, argdict):
 
         self.dimZ = argdict['dimZ']
@@ -27,21 +27,21 @@ class topic_model_1layer:
         We1 = th.shared(np.random.normal(0,1./np.sqrt(self.voc_size),(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
-        We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(self.dimZ,argdict['HUe1'])).astype(th.config.floatX), name = 'We_mu')
+        We2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'], argdict['HUe1'])).astype(th.config.floatX), name = 'We1')
+        be2 = th.shared(np.random.normal(0,1,(argdict['HUe2'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+
+        We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe2'])),(self.dimZ,argdict['HUe2'])).astype(th.config.floatX), name = 'We_mu')
         be_mu = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
-        We_var = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(self.dimZ, argdict['HUe1'])).astype(th.config.floatX), name = 'We_var')
+        We_var = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe2'])),(self.dimZ, argdict['HUe2'])).astype(th.config.floatX), name = 'We_var')
         be_var = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
-        Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
-        bd1 = th.shared(np.random.normal(0,1,(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
-
-        Wd2 = th.shared(np.random.normal(0,1/np.sqrt(float(argdict['HUd1'])),(self.voc_size, argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
-        bd2 = th.shared(np.random.normal(0,1,(self.voc_size,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+        Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(self.voc_size, self.dimZ)).astype(th.config.floatX), name = 'Wd1')
+        bd1 = th.shared(np.random.normal(0,1,(self.voc_size,1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
 
 
-        self.params = OrderedDict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu),  \
-            ('We_var', We_var), ('be_var', be_var), ('Wd1', Wd1), ('bd1', bd1), ('Wd2', Wd2), ('bd2', bd2)])
+        self.params = OrderedDict([('We1', We1), ('be1', be1), ('We2', We2), ('be2', be2), ('We_mu', We_mu), ('be_mu', be_mu),  \
+            ('We_var', We_var), ('be_var', be_var), ('Wd1', Wd1), ('bd1', bd1)])
 
         # Adam
         self.b1 = 0.1
@@ -65,6 +65,7 @@ class topic_model_1layer:
 
         self.createGradientFunctions()
 
+
     def createGradientFunctions(self):
 
         x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
@@ -72,19 +73,20 @@ class topic_model_1layer:
 
         srng = T.shared_randomstreams.RandomStreams()
 
-        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
-        H = relu(H_lin)
+        H1_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
+        H1 = relu(H1_lin)
 
-        mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
-        logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
+        H2_lin = T.dot(self.params['We2'], H1) + self.params['be2']
+        H2 = relu(H2_lin)
+
+        mu  = T.dot(self.params['We_mu'], H2)  + self.params['be_mu']
+        logvar = T.dot(self.params['We_var'], H2) + self.params['be_var']
 
 
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
         z = mu + T.exp(0.5*logvar)*eps
 
-        H_d = relu(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
-
-        y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
+        y_notnorm = T.exp(-T.dot(self.params['Wd1'], z)  - self.params['bd1'])
         y = y_notnorm/T.sum(y_notnorm, axis=0)
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
@@ -92,15 +94,7 @@ class topic_model_1layer:
         KLD_train = KLD*KLD_factor
 
 
-
         recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
-        # recon_err =  T.sum(theano.sparse.sp_sum(theano.sparse.basic.mul(x, T.log(y)), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
-
-
-        # logx = theano.sparse.structured_log(x)
-        # loglogy = T.log(-T.log(y))
-        # xlogy = T.exp(theano.sparse.basic.add(logx, -loglogy))
-        # recon_err =  T.sum(T.sum(xlogy, axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
         lowerbound_train = recon_err - KLD_train
         lowerbound = recon_err - KLD
@@ -122,12 +116,6 @@ class topic_model_1layer:
             new_m = self.b1 * gradient + (1 - self.b1) * m
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v
             
-            # if i%2 == 0:
-            #     updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20) 
-            # else:
-            #     parameter_norm = parameter / T.sqrt(T.sum(T.sqr(parameter), axis=1, keepdims=True))
-            #     updates[parameter] = parameter_norm + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
-
             updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
 
             updates[m] = new_m
@@ -144,13 +132,19 @@ class topic_model_1layer:
         We1 = self.params["We1"].get_value() 
         be1 = self.params["be1"].get_value()      
 
+        We2 = self.params["We2"].get_value() 
+        be2 = self.params["be2"].get_value()  
+
         We_mu = self.params["We_mu"].get_value()
         be_mu = self.params["be_mu"].get_value()
 
         We_var = self.params["We_var"].get_value()
         be_var = self.params["be_var"].get_value()
 
-        H = np.dot(We1, x) + be1
+        H1 = np.dot(We1, x) + be1
+        H1[H1<0] = 0
+
+        H = np.dot(We2, H1) + be2
         H[H<0] = 0
 
         mu  = np.dot(We_mu, H)  + be_mu
@@ -164,17 +158,10 @@ class topic_model_1layer:
         Wd1 = self.params["Wd1"].get_value()
         bd1 = self.params["bd1"].get_value()
 
-        Wd2 = self.params["Wd2"].get_value()
-        bd2 = self.params["bd2"].get_value()
-
         z = np.random.normal(mu, np.exp(logvar))
 
-        H_d = np.dot(Wd1, z) + bd1 
-
-        H_d[H_d<0] = 0
-
-        y_lin = np.dot(Wd2, H_d)  + bd2
-        y_notnorm = 1./(1.+np.exp(-y_lin))
+        y_lin = np.dot(Wd1, z)  + bd1
+        y_notnorm = np.exp(-y_lin)
 
 
         return y_notnorm
@@ -246,9 +233,6 @@ class topic_model_1layer:
             recon_err += recon_err_batch
             KLD += KLD_batch
             KLD_train += KLD_train_batch
-            # if progress != int(50.*i/len(data_x)):
-            #     print '='*int(50.*i/len(data_x))+'>'
-            #     progress = int(50.*i/len(data_x))
 
         return lowerbound, recon_err, KLD, KLD_train
 

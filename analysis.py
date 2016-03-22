@@ -11,14 +11,19 @@ import sys
 import matplotlib.pyplot as plt
 
 
-def plot_lowerbound(lb, lb_test, model_title):
+def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, model_title):
     plt.plot(-lb)
     plt.plot(-lb_test)
+    plt.plot(KLD)
+    plt.plot(KLDtrain)
+    plt.plot(np.log(perplex))
     plt.gca().set_xscale("log")
     plt.xlabel('epochs')
     plt.ylabel('lowerbound of log likelihood')
-    plt.legend(['train', 'test'])
-    plt.savefig("results/vae_own/" + model_title + '/convergence')
+    plt.ylim( (0, 10) )
+    plt.title('stats with min perplexity ' + str(np.min(perplex)))
+    plt.legend(['train', 'test', 'KLD', 'KLDused', 'logperplex'])
+    plt.savefig("results/vae_own/" + model_title + '/stats')
 
 def plot_used_dims(model, x_test, model_title):
     plt.figure()

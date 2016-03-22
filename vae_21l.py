@@ -15,7 +15,7 @@ from scipy.special import gammaln
 def relu(x):
     return T.switch(x<0,0,x)
         
-class topic_model_1layer:
+class topic_model_21layer:
     def __init__(self, argdict):
 
         self.dimZ = argdict['dimZ']
@@ -27,10 +27,13 @@ class topic_model_1layer:
         We1 = th.shared(np.random.normal(0,1./np.sqrt(self.voc_size),(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
-        We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(self.dimZ,argdict['HUe1'])).astype(th.config.floatX), name = 'We_mu')
+        We2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'], argdict['HUe1'])).astype(th.config.floatX), name = 'We1')
+        be2 = th.shared(np.random.normal(0,1,(argdict['HUe2'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+
+        We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe2'])),(self.dimZ,argdict['HUe2'])).astype(th.config.floatX), name = 'We_mu')
         be_mu = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
-        We_var = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(self.dimZ, argdict['HUe1'])).astype(th.config.floatX), name = 'We_var')
+        We_var = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe2'])),(self.dimZ, argdict['HUe2'])).astype(th.config.floatX), name = 'We_var')
         be_var = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
         Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
@@ -40,7 +43,7 @@ class topic_model_1layer:
         bd2 = th.shared(np.random.normal(0,1,(self.voc_size,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
 
 
-        self.params = OrderedDict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu),  \
+        self.params = OrderedDict([('We1', We1), ('be1', be1), ('We2', We2), ('be2', be2), ('We_mu', We_mu), ('be_mu', be_mu),  \
             ('We_var', We_var), ('be_var', be_var), ('Wd1', Wd1), ('bd1', bd1), ('Wd2', Wd2), ('bd2', bd2)])
 
         # Adam
@@ -72,11 +75,14 @@ class topic_model_1layer:
 
         srng = T.shared_randomstreams.RandomStreams()
 
-        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
-        H = relu(H_lin)
+        H1_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
+        H1 = relu(H1_lin)
 
-        mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
-        logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
+        H2_lin = T.dot(self.params['We2'], H1) + self.params['be2']
+        H2 = relu(H2_lin)
+
+        mu  = T.dot(self.params['We_mu'], H2)  + self.params['be_mu']
+        logvar = T.dot(self.params['We_var'], H2) + self.params['be_var']
 
 
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
@@ -144,15 +150,20 @@ class topic_model_1layer:
         We1 = self.params["We1"].get_value() 
         be1 = self.params["be1"].get_value()      
 
+        We2 = self.params["We2"].get_value() 
+        be2 = self.params["be2"].get_value()  
+
         We_mu = self.params["We_mu"].get_value()
         be_mu = self.params["be_mu"].get_value()
 
         We_var = self.params["We_var"].get_value()
         be_var = self.params["be_var"].get_value()
 
-        H = np.dot(We1, x) + be1
-        H[H<0] = 0
+        H1 = np.dot(We1, x) + be1
+        H1[H1<0] = 0
 
+        H = np.dot(We2, H1) + be2
+        H[H<0] = 0
         mu  = np.dot(We_mu, H)  + be_mu
         logvar = np.dot(We_var, H) + be_var
 

@@ -10,6 +10,9 @@ from scipy.misc import factorial
 from collections import OrderedDict
 import cPickle as pickle
 
+def relu(x):
+    return T.switch(x<0,0,x)
+
 class topic_model_2layer:
     def __init__(self, argdict):
 
@@ -19,26 +22,26 @@ class topic_model_2layer:
         self.batch_size = argdict['batch_size']
         sigmaInit = argdict['sigmaInit']
 
-        We1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe1'], argdict['voc_size'])).astype(th.config.floatX), name = 'We1')
-        be1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+        We1 = th.shared(np.random.normal(0,1./np.sqrt(argdict['voc_size']),(argdict['HUe1'], argdict['voc_size'])).astype(th.config.floatX), name = 'We1')
+        be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
-        We2 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe2'], argdict['HUe1'])).astype(th.config.floatX), name = 'We2')
-        be2 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUe2'],1)).astype(th.config.floatX), name = 'be2', broadcastable=(False,True))
+        We2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'], argdict['HUe1'])).astype(th.config.floatX), name = 'We2')
+        be2 = th.shared(np.random.normal(0,1,(argdict['HUe2'],1)).astype(th.config.floatX), name = 'be2', broadcastable=(False,True))
 
-        We_mu = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,argdict['HUe2'])).astype(th.config.floatX), name = 'We_mu')
-        be_mu = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
+        We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe2'])),(self.dimZ,argdict['HUe2'])).astype(th.config.floatX), name = 'We_mu')
+        be_mu = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
-        We_var = th.shared(np.random.normal(0,sigmaInit,(self.dimZ, argdict['HUe2'])).astype(th.config.floatX), name = 'We_var')
-        be_var = th.shared(np.random.normal(0,sigmaInit,(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
+        We_var = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe2'])),(self.dimZ, argdict['HUe2'])).astype(th.config.floatX), name = 'We_var')
+        be_var = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
-        Wd1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
-        bd1 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
+        Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
+        bd1 = th.shared(np.random.normal(0,1,(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
 
-        Wd2 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd2'], argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
-        bd2 = th.shared(np.random.normal(0,sigmaInit,(argdict['HUd2'],1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+        Wd2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUd1'])),(argdict['HUd2'], argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
+        bd2 = th.shared(np.random.normal(0,1,(argdict['HUd2'],1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
 
-        Wd3 = th.shared(np.random.normal(0,sigmaInit,(argdict['voc_size'], argdict['HUd2'])).astype(th.config.floatX), name = 'Wd3')
-        bd3 = th.shared(np.random.normal(0,sigmaInit,(argdict['voc_size'],1)).astype(th.config.floatX), name = 'bd3', broadcastable=(False,True))
+        Wd3 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUd2'])),(argdict['voc_size'], argdict['HUd2'])).astype(th.config.floatX), name = 'Wd3')
+        bd3 = th.shared(np.random.normal(0,1,(argdict['voc_size'],1)).astype(th.config.floatX), name = 'bd3', broadcastable=(False,True))
 
 
         self.params = OrderedDict([('We1', We1), ('be1', be1), ('We2', We2), ('be2', be2), ('We_mu', We_mu), ('be_mu', be_mu),  \
@@ -71,10 +74,10 @@ class topic_model_2layer:
         srng = T.shared_randomstreams.RandomStreams()
 
         H1_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
-        H1 = T.nnet.softplus(H1_lin)
+        H1 = relu(H1_lin)
 
         H2_lin = T.dot(self.params['We2'], H1) + self.params['be2']
-        H2 = T.nnet.softplus(H2_lin)
+        H2 = relu(H2_lin)
 
         mu  = T.dot(self.params['We_mu'], H2)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H2) + self.params['be_var']
@@ -82,10 +85,11 @@ class topic_model_2layer:
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
         z = mu + T.exp(0.5*logvar)*eps
 
-        H_d_1 = T.nnet.softplus(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
-        H_d_2 = T.nnet.softplus(T.dot(self.params['Wd2'], H_d_1)  + self.params['bd2'])
+        H_d_1 = relu(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
+        H_d_2 = relu(T.dot(self.params['Wd2'], H_d_1)  + self.params['bd2'])
 
-        y = T.nnet.softplus(T.dot(self.params['Wd3'], H_d_2)  + self.params['bd3'])
+        y_notnorm = T.exp(-T.dot(self.params['Wd3'], H_d_2)  - self.params['bd3'])
+        y = y_notnorm/T.sum(y_notnorm, axis=0)
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
         KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
@@ -112,12 +116,14 @@ class topic_model_2layer:
             new_m = self.b1 * gradient + (1 - self.b1) * m
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v
             
-            if i%2 == 0:
-                updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20) 
-            else:
-                parameter_norm = parameter / T.sqrt(T.sum(T.sqr(parameter), axis=1, keepdims=True))
-                updates[parameter] = parameter_norm + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
+            # if i%2 == 0:
+            #     updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20) 
+            # else:
+            #     parameter_norm = parameter / T.sqrt(T.sum(T.sqr(parameter), axis=1, keepdims=True))
+            #     updates[parameter] = parameter_norm + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
                 
+            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
+
 
             updates[m] = new_m
             updates[v] = new_v
@@ -142,11 +148,11 @@ class topic_model_2layer:
         We_var = self.params["We_var"].get_value()
         be_var = self.params["be_var"].get_value()
 
-        H_lin_1 = np.dot(We1, x) + be1
-        H_1 = np.log(1 + np.exp(H_lin_1)) #softplus
+        H_1 = np.dot(We1, x) + be1
+        H_1[H_1<0] = 0
 
-        H_lin = np.dot(We2, H_1) + be2
-        H = np.log(1 + np.exp(H_lin)) #softplus
+        H = np.dot(We2, H_1) + be2
+        H[H<0] = 0
 
         mu  = np.dot(We_mu, H)  + be_mu
         logvar = np.dot(We_var, H) + be_var
@@ -167,19 +173,20 @@ class topic_model_2layer:
 
         z = np.random.normal(mu, np.exp(logvar)) #check this
 
-        H_d_lin_1 = np.dot(Wd1, z) + bd1 
-        H_d_1 = np.log(1 + np.exp(H_d_lin_1))
+        H_d_1 = np.dot(Wd1, z) + bd1 
+        H_d_1[H_d_1<0] = 0
 
-        H_d_lin_2 = np.dot(Wd2, H_d_1) + bd2
-        H_d = np.log(1 + np.exp(H_d_lin_2))
+        H_d = np.dot(Wd2, H_d_1) + bd2
+        H_d[H_d<0] = 0
 
         y_lin = np.dot(Wd3, H_d)  + bd3
-        y = np.log(1 + np.exp(y_lin))
+        y_notnorm = np.exp(-y_lin)
 
-        return y
+        return y_notnorm
 
         
     def calculate_perplexity(self, doc, selected_features=None, means=None, seen_words=0.5, samples=1):
+
         doc = np.array(doc.todense())
         
         if selected_features!=None:
@@ -196,42 +203,24 @@ class topic_model_2layer:
             word_index = np.argmax(cs>word_no)
             doc_seen[word_index]+=1
             
-
-        doc_unseen = doc - doc_seen
-
-        mu, logvar = self.encode(doc_seen)
-
         log_perplexity_doc_vec = 0
-
         total_lambda = 0
 
-        for i in xrange(samples):
+        doc_unseen = doc - doc_seen
+        mu, logvar = self.encode(doc_seen)
+        y_notnorm = self.decode(mu, logvar)
 
-            y = self.decode(mu, logvar)
-
+        if selected_features!=None:
             if means!=None:
-                lambdas_doc = means
+                mult_params_naive = means
             else:
-                lambdas_doc = np.zeros_like(doc)
-
-            if lambdas_doc!=None:
-                if selected_features!=None:
-                    lambdas_doc[selected_features] = y
-                else:
-                    lambdas_doc = y
-            else:
-                if selected_features!=None:
-                    lambdas_doc[selected_features] += y
-                else:
-                    lambdas_doc += y
-
-
-        lambdas_doc_avg = lambdas_doc/samples
-
-        mult_params_doc = lambdas_doc/np.sum(lambdas_doc)
-        log_perplexity_doc_vec = doc_unseen * np.log(mult_params_doc)
-        log_perplexity_doc = -np.sum(log_perplexity_doc_vec)
+                mult_params = np.zeros_like(doc)
+                mult_params[selected_features] = y_notnorm/np.sum(y_notnorm, axis=0)
+        else:
+            mult_params = y_notnorm/np.sum(y_notnorm, axis=0)
         n_words = np.sum(doc_unseen)
+        log_perplexity_doc = np.sum(doc_unseen*np.log(mult_params))
+
 
         return log_perplexity_doc, n_words
 
