@@ -252,9 +252,14 @@ def select_features(mincount=0, dataset='kos'):
     pickle.dump(data_rest_lil, f)
     f.close()
 
-    f = gzip.open('data/'+dataset+'/docword_' + str(mincount) + '_indices.pklz','wb')
+    f = gzip.open('data/'+dataset+'/docword_' + str(mincount) + '_used_indices.pklz','wb')
     pickle.dump(row_indices, f)
     f.close()
+
+    f = gzip.open('data/'+dataset+'/docword_' + str(mincount) + '_rest_indices.pklz','wb')
+    pickle.dump(rest_indices, f)
+    f.close()
+
 
     print "done, new shape = ", data_pruned_lil.shape
 
