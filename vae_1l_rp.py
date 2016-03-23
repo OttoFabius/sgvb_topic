@@ -68,11 +68,12 @@ class topic_model_1layer:
     def createGradientFunctions(self):
 
         x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
+        rest = T.matrix(name='rest')
         epoch = T.iscalar('epoch')
 
         srng = T.shared_randomstreams.RandomStreams()
 
-        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
+        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1'] + rest
         H = relu(H_lin)
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
@@ -88,7 +89,7 @@ class topic_model_1layer:
         y = y_notnorm/T.sum(y_notnorm, axis=0)
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
-        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x+1, axis=0)) #hack
+        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
         KLD_train = KLD*KLD_factor
 
 
@@ -134,10 +135,10 @@ class topic_model_1layer:
             updates[v] = new_v
 
 
-        self.update = th.function([x, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates)
-        self.lowerbound  = th.function([x, epoch], [lowerbound, recon_err], on_unused_input='ignore')
+        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates)
+        self.lowerbound  = th.function([x, rest, epoch], [lowerbound, recon_err], on_unused_input='ignore')
 
-    def encode(self, x):
+    def encode(self, x, rest):
         """Helper function to compute the encoding of a datapoint or minibatch to z"""
 
 
@@ -150,7 +151,7 @@ class topic_model_1layer:
         We_var = self.params["We_var"].get_value()
         be_var = self.params["be_var"].get_value()
 
-        H = np.dot(We1, x) + be1
+        H = np.dot(We1, x) + be1 + rest
         H[H<0] = 0
 
         mu  = np.dot(We_mu, H)  + be_mu
@@ -179,7 +180,7 @@ class topic_model_1layer:
 
         return y_notnorm
 
-    def calculate_perplexity(self, doc, selected_features=None, means=None, seen_words=0.5, samples=1):
+    def calculate_perplexity(self, doc, rest, selected_features=None, means=None, seen_words=0.5, samples=1):
 
         doc = np.array(doc.todense())
         
@@ -202,7 +203,7 @@ class topic_model_1layer:
         total_lambda = 0
 
         doc_unseen = doc - doc_seen
-        mu, logvar = self.encode(doc_seen)
+        mu, logvar = self.encode(doc_seen, rest)
         y_notnorm = self.decode(mu, logvar)
 
         if selected_features!=None:
@@ -221,7 +222,7 @@ class topic_model_1layer:
 
         return log_perplexity_doc, n_words
 
-    def iterate(self, X, epoch):
+    def iterate(self, X, rest, epoch):
         """Main method, slices data in minibatches and performs a training epoch. Returns LB for whole dataset
             added a progress print during an epoch (comment/uncomment line 164)"""
 
@@ -240,8 +241,8 @@ class topic_model_1layer:
             
 
             X_batch = X[batches[i]:batches[i+1]]
-
-            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, epoch)
+            rest_batch = rest[batches[i]:batches[i+1]]
+            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch.T, epoch)
             
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
@@ -263,12 +264,14 @@ class topic_model_1layer:
         if batches[-1] != N:
             batches = np.append(batches,N)
 
+
         for i in xrange(0,len(batches)-1):
             if batches[i+1]<N:
-                miniBatch = data[batches[i]:batches[i+1]]
-                lb_batch, recon_batch = self.lowerbound(miniBatch.T, epoch)
+                X_batch = data[batches[i]:batches[i+1]]
+                rest_batch = rest[batches[i]:batches[i+1]]
+                lb_batch, recon_batch = self.lowerbound(X_batch.T, rest_batch.T, epoch)
             else:
-                lb_batch, recon_batch = (0, 0) #function doesnt work for non-batch_size :(
+                lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(
 
             lowerbound += lb_batch
             recon_err += recon_batch

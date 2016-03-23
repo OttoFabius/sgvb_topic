@@ -65,7 +65,7 @@ def save_stats(fname, lowerbound, testlowerbound, KLD, KLD_used, recon_train, re
     np.save(fname + '/perplexity.npy', perplexity)
     np.save(fname + '/perp_sem.npy', perp_sem)
 
-def perplexity_during_train(model, data, argdict, selected_features=None):
+def perplexity_during_train(model, data, rest, argdict, selected_features=None):
 
     samples = argdict['samples']
 
@@ -78,7 +78,8 @@ def perplexity_during_train(model, data, argdict, selected_features=None):
         n_words=0
         for docnr in docnrs:
             doc = data[docnr,:]
-            log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, selected_features=selected_features)
+            rest_doc = rest[docnr, :]
+            log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, rest_doc.T, selected_features=selected_features)
 
             log_perplexity += log_perplexity_doc
             n_words += n_words_doc
@@ -328,7 +329,7 @@ def load_parameters(model, path):
     for name,v in zip(names,v_list): 
         model.v[name].set_value(v)
 
-def create_rp(K=100, dataset = 'kos', mincount=15):
+def create_rp(K=100, dataset = 'kos', mincount=50):
 
     f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','rb')
     data_rest = pickle.load(f)
