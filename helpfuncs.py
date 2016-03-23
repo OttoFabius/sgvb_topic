@@ -239,17 +239,17 @@ def select_features(mincount=0, dataset='kos'):
     row_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)>mincount)[1]))
     rest_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)<=mincount)[1]))
     data_pruned = data_orig[:,row_indices]
-    data_pruned_lil = lil_matrix(data_pruned)
+    data_pruned = lil_matrix(data_pruned)
     data_rest = data_orig[:,rest_indices]
-    data_rest_lil = lil_matrix(data_rest)
+    data_rest = lil_matrix(data_rest)
 
     print 'saving'
     f = gzip.open('data/'+dataset+'/docword_matrix_' + str(mincount) + '.pklz','wb')
-    pickle.dump(data_pruned_lil, f)
+    pickle.dump(data_pruned, f)
     f.close()
 
     f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','wb')
-    pickle.dump(data_rest_lil, f)
+    pickle.dump(data_rest, f)
     f.close()
 
     f = gzip.open('data/'+dataset+'/docword_' + str(mincount) + '_used_indices.pklz','wb')

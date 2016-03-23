@@ -192,11 +192,10 @@ class topic_model_1layer:
 
         cs = np.cumsum(doc)
 
-        samp = np.random.choice(np.arange(cs[-1]), np.floor(cs[-1]*seen_words), replace=False).astype(int)
-        print 'samp', samp
+        samp = np.random.choice(np.arange(cs[-1]), int(np.floor(cs[-1]*seen_words)), replace=False)
+
         for word_no in samp:
             word_index = np.argmax(cs>word_no)
-            print word_index
             doc_seen[word_index]+=1
             
         log_perplexity_doc_vec = 0
