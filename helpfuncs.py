@@ -240,13 +240,9 @@ def select_features(mincount=0, dataset='kos'):
     row_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)>mincount)[1]))
     rest_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)<=mincount)[1]))
     print "dp"
-    data_pruned = data_orig[:,row_indices]
-    print "dp lil"
-    data_pruned = lil_matrix(data_pruned)
+    data_pruned = lil_matrix(data_orig[:,row_indices])
     print "rest"
-    data_rest = data_orig[:,rest_indices]
-    print "rest lil"
-    data_rest = lil_matrix(data_rest)
+    data_rest = lil_matrix(data_orig[:,rest_indices])
 
     print 'saving, first used'
     f = gzip.open('data/'+dataset+'/docword_matrix_' + str(mincount) + '.pklz','wb')
@@ -266,7 +262,7 @@ def select_features(mincount=0, dataset='kos'):
     f.close()
 
 
-    print "done, new shape of used data = ", data_pruned_lil.shape
+    print "done, new shape of used data = ", data_pruned.shape
 
 def select_features_ent(n_features=1000, dataset='kos'):
 	
