@@ -7,6 +7,7 @@ import time
 import ConfigParser
 import matplotlib.pyplot as plt
 from random import shuffle
+from scipy.linalg import orth
 
 def parse_config(fname):
     config = ConfigParser.ConfigParser()
@@ -235,7 +236,8 @@ def select_features(mincount=0, dataset='kos'):
     data_orig = pickle.load(f)
     f.close()
     print "done"
-
+    print 'csc'
+    data_orig = csc_matrix(data_orig)
     print "getting indices"
     row_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)>mincount)[1]))
     rest_indices = np.ndarray.flatten(np.array(np.nonzero(data_orig.sum(0)<=mincount)[1]))
@@ -325,3 +327,19 @@ def load_parameters(model, path):
         model.m[name].set_value(m)
     for name,v in zip(names,v_list): 
         model.v[name].set_value(v)
+
+def create_rp(argdict, K=100):
+
+    x = load_dataset(argdict)
+    data = csc_matrix(x)
+    N, D = data.shape
+    print N, 'datapoints', 'and', D, 'dimensions'
+    print 'creating R'
+    R = np.random.normal(0, 1/np.sqrt(D), [D, K])
+    print 'orthogonalize'
+    R_o = orth(R)
+    print 'check orth, max is ', np.max(np.dot(R_o.T, R_o))
+    print 'projecting data'
+    data_proj = data.dot(R)
+
+
