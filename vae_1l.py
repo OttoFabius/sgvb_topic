@@ -242,6 +242,7 @@ class topic_model_1layer:
             X_batch = X[batches[i]:batches[i+1]]
 
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, epoch)
+            print lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
 
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch

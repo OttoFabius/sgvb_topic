@@ -328,10 +328,14 @@ def load_parameters(model, path):
     for name,v in zip(names,v_list): 
         model.v[name].set_value(v)
 
-def create_rp(argdict, K=100):
+def create_rp(K=100, dataset = 'kos', mincount=15):
 
-    x = load_dataset(argdict)
-    data = csc_matrix(x)
+    f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','rb')
+    data_rest = pickle.load(f)
+    f.close()
+    
+    data = csc_matrix(data_rest)
+
     N, D = data.shape
     print N, 'datapoints', 'and', D, 'dimensions'
     print 'creating R'
@@ -341,5 +345,17 @@ def create_rp(argdict, K=100):
     print 'check orth, max is ', np.max(np.dot(R_o.T, R_o))
     print 'projecting data'
     data_proj = data.dot(R)
+
+    print "saving data"
+    f = gzip.open('data/'+dataset+'/R_' + str(mincount) + '.pklz','wb')
+    pickle.dump(R_o, f)
+    f.close()
+
+    f = gzip.open('data/'+dataset+'/data_proj_' + str(mincount) + '.pklz','wb')
+    pickle.dump(data_proj, f)
+    f.close()
+
+
+
 
 

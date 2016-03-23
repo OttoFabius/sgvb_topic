@@ -37,7 +37,7 @@ if __name__=="__main__":
     n_train, argdict['voc_size'] = x_train.shape
     n_test = argdict['testset_size']
 
-    print 'voc size', argdict['voc_size']
+    print 'voc size:', argdict['voc_size'], "n_total:", n_total, "n_train:", n_train, "n_test:", n_test
     used_features = load_used_features(argdict)
     print "initializing model + graph..."
     if argdict['HUe2']==0:
