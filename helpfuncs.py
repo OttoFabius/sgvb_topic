@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from random import shuffle
 from scipy.linalg import orth
 from vae_1l_rp import topic_model_1layer
-from vae_2l import topic_model_2layer
+from vae_2l_rp import topic_model_2layer
 from vae_21l import topic_model_21layer
 from vae_20l import topic_model_20layer
 from vae_lin import topic_model_linear

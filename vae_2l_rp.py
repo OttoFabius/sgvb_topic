@@ -5,17 +5,15 @@ import theano.sparse
 import scipy as sp
 from theano.tensor.shared_randomstreams import RandomStreams
 import matplotlib.pyplot as plt
-from scipy.sparse import csr_matrix
+from scipy.misc import factorial
+
 from collections import OrderedDict
 import cPickle as pickle
-from scipy.sparse import csr_matrix, csc_matrix
-from scipy.special import gammaln
-
 
 def relu(x):
     return T.switch(x<0,0,x)
-        
-class topic_model_1layer:
+
+class topic_model_2layer:
     def __init__(self, argdict):
 
         self.dimZ = argdict['dimZ']
@@ -27,24 +25,30 @@ class topic_model_1layer:
         self.rp = argdict['rp']
         self.K = argdict['HUe1']
 
-        We1 = th.shared(np.random.normal(0,1./np.sqrt(self.voc_size),(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
+        We1 = th.shared(np.random.normal(0,1./np.sqrt(argdict['voc_size']),(argdict['HUe1'], argdict['voc_size'])).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
-        We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(self.dimZ,argdict['HUe1'])).astype(th.config.floatX), name = 'We_mu')
+        We2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'], argdict['HUe1'])).astype(th.config.floatX), name = 'We2')
+        be2 = th.shared(np.random.normal(0,1,(argdict['HUe2'],1)).astype(th.config.floatX), name = 'be2', broadcastable=(False,True))
+
+        We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe2'])),(self.dimZ,argdict['HUe2'])).astype(th.config.floatX), name = 'We_mu')
         be_mu = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
-        We_var = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(self.dimZ, argdict['HUe1'])).astype(th.config.floatX), name = 'We_var')
+        We_var = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe2'])),(self.dimZ, argdict['HUe2'])).astype(th.config.floatX), name = 'We_var')
         be_var = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
         Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
         bd1 = th.shared(np.random.normal(0,1,(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
 
-        Wd2 = th.shared(np.random.normal(0,1/np.sqrt(float(argdict['HUd1'])),(self.voc_size, argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
-        bd2 = th.shared(np.random.normal(0,1,(self.voc_size,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+        Wd2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUd1'])),(argdict['HUd2'], argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
+        bd2 = th.shared(np.random.normal(0,1,(argdict['HUd2'],1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+
+        Wd3 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUd2'])),(argdict['voc_size'], argdict['HUd2'])).astype(th.config.floatX), name = 'Wd3')
+        bd3 = th.shared(np.random.normal(0,1,(argdict['voc_size'],1)).astype(th.config.floatX), name = 'bd3', broadcastable=(False,True))
 
 
-        self.params = OrderedDict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu),  \
-            ('We_var', We_var), ('be_var', be_var), ('Wd1', Wd1), ('bd1', bd1), ('Wd2', Wd2), ('bd2', bd2)])
+        self.params = OrderedDict([('We1', We1), ('be1', be1), ('We2', We2), ('be2', be2), ('We_mu', We_mu), ('be_mu', be_mu),  \
+            ('We_var', We_var), ('be_var', be_var), ('Wd1', Wd1), ('bd1', bd1), ('Wd2', Wd2), ('bd2', bd2), ('Wd3', Wd3), ('bd3', bd3)])
 
         # Adam
         self.b1 = 0.1
@@ -55,8 +59,6 @@ class topic_model_1layer:
         self.KLD_free = argdict['KLD_free']
         self.KLD_burnin = argdict['KLD_burnin']
 
-
-
         for key,value in self.params.items():
             if 'b' in key:
                 self.m[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='m_' + key, broadcastable=(False,True))
@@ -65,47 +67,41 @@ class topic_model_1layer:
                 self.m[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='m_' + key)
                 self.v[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='v_' + key)
 
-
         self.createGradientFunctions()
 
     def createGradientFunctions(self):
-
+        """ Defines optimization criterion and creates symbolic gradient function"""
         x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
         rest = T.matrix(name='rest')
         epoch = T.iscalar('epoch')
 
         srng = T.shared_randomstreams.RandomStreams()
 
-        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
-
+        H1_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
         if self.rp==1:
-            H_lin += rest
+            H1_lin += rest
 
-        H = relu(H_lin)
+        H1 = relu(H1_lin)
 
-        mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
-        logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
+        H2_lin = T.dot(self.params['We2'], H1) + self.params['be2']
+        H2 = relu(H2_lin)
 
+        mu  = T.dot(self.params['We_mu'], H2)  + self.params['be_mu']
+        logvar = T.dot(self.params['We_var'], H2) + self.params['be_var']
 
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
         z = mu + T.exp(0.5*logvar)*eps
 
-        H_d = relu(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
+        H_d_1 = relu(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
+        H_d_2 = relu(T.dot(self.params['Wd2'], H_d_1)  + self.params['bd2'])
 
-        y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
+        y_notnorm = T.exp(-T.dot(self.params['Wd3'], H_d_2)  - self.params['bd3'])
         y = y_notnorm/T.sum(y_notnorm, axis=0)
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
-        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+        KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/(theano.sparse.basic.sp_sum(x, axis=0))+self.e)
         KLD_train = KLD*KLD_factor
-
-        recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
-        # recon_err =  T.sum(theano.sparse.sp_sum(theano.sparse.basic.mul(x, T.log(y)), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
-
-        # logx = theano.sparse.structured_log(x)
-        # loglogy = T.log(-T.log(y))
-        # xlogy = T.exp(theano.sparse.basic.add(logx, -loglogy))
-        # recon_err =  T.sum(T.sum(xlogy, axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+        recon_err =  T.sum(T.sum(-y + x * T.log(y),                  axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
         lowerbound_train = recon_err - KLD_train
         lowerbound = recon_err - KLD
@@ -132,14 +128,15 @@ class topic_model_1layer:
             # else:
             #     parameter_norm = parameter / T.sqrt(T.sum(T.sqr(parameter), axis=1, keepdims=True))
             #     updates[parameter] = parameter_norm + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
-
+                
             updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
+
 
             updates[m] = new_m
             updates[v] = new_v
 
 
-        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')
+        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train, y], updates=updates, on_unused_input='ignore')
         self.lowerbound  = th.function([x, rest, epoch], [lowerbound, recon_err], on_unused_input='ignore')
 
     def encode(self, x, rest=None):
@@ -147,7 +144,10 @@ class topic_model_1layer:
 
 
         We1 = self.params["We1"].get_value() 
-        be1 = self.params["be1"].get_value()      
+        be1 = self.params["be1"].get_value() 
+
+        We2 = self.params["We2"].get_value() 
+        be2 = self.params["be2"].get_value()      
 
         We_mu = self.params["We_mu"].get_value()
         be_mu = self.params["be_mu"].get_value()
@@ -155,12 +155,12 @@ class topic_model_1layer:
         We_var = self.params["We_var"].get_value()
         be_var = self.params["be_var"].get_value()
 
-
-        H = np.dot(We1, x) + be1 
-
+        H_1 = np.dot(We1, x) + be1
         if type(rest)==np.ndarray:
-            H = H+rest
+            H1 = H1+rest
+        H_1[H_1<0] = 0
 
+        H = np.dot(We2, H_1) + be2
         H[H<0] = 0
 
         mu  = np.dot(We_mu, H)  + be_mu
@@ -177,19 +177,25 @@ class topic_model_1layer:
         Wd2 = self.params["Wd2"].get_value()
         bd2 = self.params["bd2"].get_value()
 
-        z = np.random.normal(mu, np.exp(logvar))
+        Wd3 = self.params["Wd3"].get_value()
+        bd3 = self.params["bd3"].get_value()
 
-        H_d = np.dot(Wd1, z) + bd1 
+        z = np.random.normal(mu, np.exp(logvar)) #check this
 
+        H_d_1 = np.dot(Wd1, z) + bd1 
+        H_d_1[H_d_1<0] = 0
+
+        H_d = np.dot(Wd2, H_d_1) + bd2
         H_d[H_d<0] = 0
 
-        y_lin = np.dot(Wd2, H_d)  + bd2
-        y_notnorm = 1./(1.+np.exp(-y_lin))
-
+        y_lin = np.dot(Wd3, H_d)  + bd3
+        y_notnorm = np.exp(-y_lin)
 
         return y_notnorm
 
+        
     def calculate_perplexity(self, doc, rest=None, selected_features=None, means=None, seen_words=0.5, samples=1):
+
         doc = np.array(doc.todense())
         
         if selected_features!=None:
@@ -201,8 +207,8 @@ class topic_model_1layer:
 
         cs = np.cumsum(doc)
 
-        samp = np.random.choice(np.arange(cs[-1]), int(np.floor(cs[-1]*seen_words)), replace=False)
-
+        samp = np.random.choice(np.arange(cs[-1]), np.floor(cs[-1]*seen_words), replace=False)
+        
         for word_no in samp:
             word_index = np.argmax(cs>word_no)
             doc_seen[word_index]+=1
@@ -216,12 +222,11 @@ class topic_model_1layer:
 
         mult_params = y_notnorm/np.sum(y_notnorm, axis=0)
         n_words = np.sum(doc_unseen)
-        t3 = np.sum(doc_unseen*np.log(mult_params))
-        t4 = gammaln(n_words+1)
-        t6 = -np.sum(gammaln(doc_unseen+1))
-        log_perplexity_doc = t3# + t4 + t6
+        log_perplexity_doc = np.sum(doc_unseen*np.log(mult_params))
+
 
         return log_perplexity_doc, n_words
+
 
     def iterate(self, X, epoch, rest=None):
         """Main method, slices data in minibatches and performs a training epoch. Returns LB for whole dataset
@@ -237,6 +242,7 @@ class topic_model_1layer:
         batches = np.arange(0,N,self.batch_size)
         if batches[-1] != N:
             batches = np.append(batches,N)
+
         rest_batch = np.zeros((self.batch_size, self.K))
         for i in xrange(0,len(batches)-2):
             
@@ -244,9 +250,9 @@ class topic_model_1layer:
             X_batch = X[batches[i]:batches[i+1]]
             if type(rest)==np.ndarray:
                 rest_batch = rest[batches[i]:batches[i+1]].T
-                
-            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, epoch)
-            
+
+            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, y = self.update(X_batch.T, rest_batch, epoch)
+
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
             KLD += KLD_batch
@@ -257,12 +263,11 @@ class topic_model_1layer:
 
         return lowerbound, recon_err, KLD, KLD_train
 
-    def getLowerBound(self, data, epoch, rest=None):
+    def getLowerBound(self,data, epoch, rest=None):
         """Use this method for example to compute lower bound on testset"""
         lowerbound = 0
         recon_err = 0
         [N,dimX] = data.shape
-
         batches = np.arange(0,N,self.batch_size)
         if batches[-1] != N:
             batches = np.append(batches,N)
@@ -270,14 +275,13 @@ class topic_model_1layer:
         rest_batch = np.zeros((self.batch_size, self.K))
         for i in xrange(0,len(batches)-1):
             if batches[i+1]<N:
-                X_batch = data[batches[i]:batches[i+1]]
+                miniBatch = data[batches[i]:batches[i+1]]
                 if type(rest)==np.ndarray:
                     rest_batch = rest[batches[i]:batches[i+1]].T
-                lb_batch, recon_batch = self.lowerbound(X_batch.T, rest_batch, epoch)
+                lb_batch, recon_batch = self.lowerbound(miniBatch.T, rest_batch, epoch)
             else:
-                lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(
+                lb_batch, recon_err = (0, 0) #function doesnt work for non-batch_size :()
 
             lowerbound += lb_batch
             recon_err += recon_batch
-
         return lowerbound, recon_err
