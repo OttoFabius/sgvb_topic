@@ -220,7 +220,7 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
 		docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
 
 	print 'removing too small docs and shuffling the rest'
-	row_indices = np.ndarray.flatten(np.array(np.nonzero(docs.sum(1)>min_per_doc)[0]))
+	# row_indices = np.ndarray.flatten(np.array(np.nonzero(docs.sum(1)>min_per_doc)[0]))
 	shuffle(row_indices)
 	docs_pruned = csc_matrix(docs[row_indices,:])
 	print 'done'
