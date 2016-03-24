@@ -1,11 +1,6 @@
 import numpy as np
 from helpfuncs import *
 from analysis import plot_stats, plot_used_dims
-from vae_1l_rp import topic_model_1layer
-from vae_2l import topic_model_2layer
-from vae_21l import topic_model_21layer
-from vae_20l import topic_model_20layer
-from vae_lin import topic_model_linear
 import time
 from scipy.sparse import csr_matrix, csc_matrix
 import gzip
@@ -29,52 +24,47 @@ if __name__=="__main__":
     x = load_dataset(argdict)
 
     x_csc = csc_matrix(x)
-    f = gzip.open('data/kos/data_proj_'+str(argdict['minfreq'])+'.pklz','rb')
-    rest = pickle.load(f)
-    f.close()
+    
+    if argdict['rp']==1:        
+        print 'using random projection of rest in encoder'
+        f = gzip.open('data/'+argdict['dataset']+'/data_proj_'+str(argdict['minfreq'])+'.pklz','rb')
+        rest = pickle.load(f)
+        f.close()
+
 
     n_total, empty = x_csc.shape
     n_test = argdict['testset_size']
-    n_train = argdict['testset_size']
+    n_train = argdict['trainset_size']
 
     x_train = x_csc[:n_train,:]
-    rest_train = rest[:n_train,:]
-    x_test = x_csc[n_total-1-n_test:n_total-1,:] 
-    rest_test = rest[n_total-1-n_test:n_total-1,:]
+    x_test = x_csc[n_total-1-n_test:n_total,:] 
+    if argdict['rp']==1:
+        rest_train = rest[:n_train,:]
+        rest_test = rest[n_total-1-n_test:n_total,:]
+    else:
+        rest_train = None
+        rest_test = None
 
     argdict['voc_size'] = x_train.shape[1]
-
-
     print 'voc size:', argdict['voc_size'], "n_total:", n_total, "n_train:", n_train, "n_test:", n_test
+
     used_features = load_used_features(argdict)
-    print "initializing model + graph..."
-    if argdict['HUe2']==0:
-        model = topic_model_1layer(argdict)
-    elif argdict['HUd2']!=0:
-        model = topic_model_2layer(argdict)
-    elif argdict['HUd1']!=0:
-        model = topic_model_21layer(argdict)    
-    elif argdict['HUd1']==0:
-        model = topic_model_20layer(argdict)
 
-    else:
-        print 'no model selected :('
-
-
+    model = initialize_model(argdict)
 
     if len(sys.argv) > 2 and sys.argv[2] == "--load":
         print "loading params for restart"
         load_parameters(model, 'results/vae_own/' + sys.argv[1])
         lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, recon_train_list, \
-        recon_test_list, perplexity_list, perp_sem_list, epoch = load_stats('results/vae_own/' + sys.argv[1])
+                    recon_test_list, perplexity_list, perp_sem_list, epoch = load_stats('results/vae_own/' + sys.argv[1])
         print "Restarting at epoch: " + str(epoch) + ' with lowerbounds ', lowerbound_list[-1], testlowerbound_list[-1]
     else:
-        lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
-        recon_train_list, recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
+        lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, recon_train_list, \
+                    recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
         epoch = 0
 
         print "estimating perplexity on test set with", argdict['samples'], "samples"
-        perplexity, perp_sem = perplexity_during_train(model, x_test, rest_test, argdict)
+        perplexity, perp_sem = perplexity_during_train(model, x_test, argdict, rest=rest_test)
         perplexity_list = np.append(perplexity_list, perplexity)
         perp_sem_list = np.append(perp_sem_list, perp_sem)
         print "perplexity =", perplexity, 'with', perp_sem, 'sem'
@@ -82,7 +72,7 @@ if __name__=="__main__":
 
 
     print 'iterating' 
-
+    idx = np.arange(n_train)
     while epoch < argdict['max_epochs']:
 
         epoch += 1      
@@ -94,15 +84,20 @@ if __name__=="__main__":
             save_parameters(model, 'results/vae_own/'+sys.argv[1])
 
             print "estimating perplexity on test set with", argdict['samples'], "samples"
-            perplexity, perp_sem = perplexity_during_train(model, x_test, argdict)
+            perplexity, perp_sem = perplexity_during_train(model, x_test, argdict, rest=rest_test)
             perplexity_list = np.append(perplexity_list, perplexity)
             perp_sem_list = np.append(perp_sem_list, perp_sem)
             print "perplexity =", perplexity, 'with', perp_sem, 'sem'
 
         start = time.time()  
-        x_train = shuffle(x_train)
-        lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train, rest_train, epoch)
-        testlowerbound, recon_test = model.getLowerBound(x_test, epoch)
+        
+        np.random.shuffle(idx)
+        x_train = x_train[idx,:]
+        if argdict['rp']==1:
+            rest_train = rest_train[idx,:]
+
+        lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train, epoch, rest=rest_train)
+        testlowerbound, recon_test = model.getLowerBound(x_test, epoch, rest=rest_test)
 
         if epoch == 1:
             print time.time() - start, 'seconds for first epoch'

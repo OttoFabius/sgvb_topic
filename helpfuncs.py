@@ -8,6 +8,11 @@ import ConfigParser
 import matplotlib.pyplot as plt
 from random import shuffle
 from scipy.linalg import orth
+from vae_1l_rp import topic_model_1layer
+from vae_2l import topic_model_2layer
+from vae_21l import topic_model_21layer
+from vae_20l import topic_model_20layer
+from vae_lin import topic_model_linear
 
 def parse_config(fname):
     config = ConfigParser.ConfigParser()
@@ -31,6 +36,7 @@ def parse_config(fname):
     argdict['save_every'] = config.getint('parameters', 'save_every')
     argdict['samples'] = config.getint('parameters', 'samples_perplex')
     argdict['max_epochs'] = config.getint('parameters', 'max_epochs')
+    argdict['rp'] = config.getint('parameters','rp')
 
     if argdict['dataset_num'] == 0:
         argdict['dataset']='kos'
@@ -65,7 +71,7 @@ def save_stats(fname, lowerbound, testlowerbound, KLD, KLD_used, recon_train, re
     np.save(fname + '/perplexity.npy', perplexity)
     np.save(fname + '/perp_sem.npy', perp_sem)
 
-def perplexity_during_train(model, data, rest, argdict, selected_features=None):
+def perplexity_during_train(model, data, argdict, rest=None, selected_features=None):
 
     samples = argdict['samples']
 
@@ -78,9 +84,11 @@ def perplexity_during_train(model, data, rest, argdict, selected_features=None):
         n_words=0
         for docnr in docnrs:
             doc = data[docnr,:]
-            rest_doc = rest[docnr, :]
-            log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, rest_doc.T, selected_features=selected_features)
-
+            if type(rest)==np.ndarray:
+                rest_doc = rest[docnr, :, np.newaxis]
+            else:
+                rest_doc=None
+            log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, rest=rest_doc, selected_features=selected_features)
             log_perplexity += log_perplexity_doc
             n_words += n_words_doc
 
@@ -207,7 +215,7 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
 		if int(ws[0])% 100 == 0:
 			print 'doc nr', int(ws[0])
 
-		if ws[0]==n_docs_max:
+		if int(ws[0])==n_docs_max:
 			break
 		docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
 
@@ -224,6 +232,21 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
 	pickle.dump(docs_pruned_lil, f)
 	f.close()
 	print 'done'
+
+def initialize_model(argdict):
+    print "initializing model + graph..."
+    if argdict['HUe2']==0:
+        model = topic_model_1layer(argdict)
+    elif argdict['HUd2']!=0:
+        model = topic_model_2layer(argdict)
+    elif argdict['HUd1']!=0:
+        model = topic_model_21layer(argdict)    
+    elif argdict['HUd1']==0:
+        model = topic_model_20layer(argdict)
+
+    else:
+        print 'no model selected :('
+    return model
 
 def select_features(mincount=0, dataset='kos'):
     start = time.time()

@@ -23,6 +23,8 @@ class topic_model_1layer:
         self.batch_size = argdict['batch_size']
         sigmaInit = argdict['sigmaInit']
         self.voc_size = argdict['voc_size']
+        self.e = 1e-8
+        self.rp = argdict['rp']
 
         We1 = th.shared(np.random.normal(0,1./np.sqrt(self.voc_size),(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
@@ -68,12 +70,19 @@ class topic_model_1layer:
     def createGradientFunctions(self):
 
         x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
-        rest = T.matrix(name='rest')
+
+        if self.rp==1:
+            rest = T.matrix(name='rest')
+
         epoch = T.iscalar('epoch')
 
         srng = T.shared_randomstreams.RandomStreams()
 
-        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1'] + rest
+        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
+
+        if self.rp==1:
+            H_lin += rest
+
         H = relu(H_lin)
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
@@ -92,11 +101,8 @@ class topic_model_1layer:
         KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
         KLD_train = KLD*KLD_factor
 
-
-
         recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
         # recon_err =  T.sum(theano.sparse.sp_sum(theano.sparse.basic.mul(x, T.log(y)), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
-
 
         # logx = theano.sparse.structured_log(x)
         # loglogy = T.log(-T.log(y))
@@ -135,10 +141,10 @@ class topic_model_1layer:
             updates[v] = new_v
 
 
-        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates)
+        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')
         self.lowerbound  = th.function([x, rest, epoch], [lowerbound, recon_err], on_unused_input='ignore')
 
-    def encode(self, x, rest):
+    def encode(self, x, rest=None):
         """Helper function to compute the encoding of a datapoint or minibatch to z"""
 
 
@@ -151,7 +157,12 @@ class topic_model_1layer:
         We_var = self.params["We_var"].get_value()
         be_var = self.params["be_var"].get_value()
 
-        H = np.dot(We1, x) + be1 + rest
+
+        H = np.dot(We1, x) + be1 
+
+        if type(rest)==np.ndarray:
+            H = H+rest
+
         H[H<0] = 0
 
         mu  = np.dot(We_mu, H)  + be_mu
@@ -180,8 +191,7 @@ class topic_model_1layer:
 
         return y_notnorm
 
-    def calculate_perplexity(self, doc, rest, selected_features=None, means=None, seen_words=0.5, samples=1):
-
+    def calculate_perplexity(self, doc, rest=None, selected_features=None, means=None, seen_words=0.5, samples=1):
         doc = np.array(doc.todense())
         
         if selected_features!=None:
@@ -203,17 +213,20 @@ class topic_model_1layer:
         total_lambda = 0
 
         doc_unseen = doc - doc_seen
-        mu, logvar = self.encode(doc_seen, rest)
+
+        mu, logvar = self.encode(doc_seen, rest=rest)
+
         y_notnorm = self.decode(mu, logvar)
 
-        if selected_features!=None:
-            if means!=None:
-                mult_params_naive = means
-            else:
-                mult_params = np.zeros_like(doc)
-                mult_params[selected_features] = y_notnorm/np.sum(y_notnorm, axis=0)
-        else:
-            mult_params = y_notnorm/np.sum(y_notnorm, axis=0)
+        # if selected_features!=None:
+        #     if means!=None:
+        #         mult_params_naive = means
+        #     else:
+        #         mult_params = np.zeros_like(doc)
+        #         mult_params[selected_features] = y_notnorm/np.sum(y_notnorm, axis=0)
+        # else:
+
+        mult_params = y_notnorm/np.sum(y_notnorm, axis=0)
         n_words = np.sum(doc_unseen)
         t3 = np.sum(doc_unseen*np.log(mult_params))
         t4 = gammaln(n_words+1)
@@ -222,7 +235,7 @@ class topic_model_1layer:
 
         return log_perplexity_doc, n_words
 
-    def iterate(self, X, rest, epoch):
+    def iterate(self, X, epoch, rest=None):
         """Main method, slices data in minibatches and performs a training epoch. Returns LB for whole dataset
             added a progress print during an epoch (comment/uncomment line 164)"""
 
@@ -241,8 +254,11 @@ class topic_model_1layer:
             
 
             X_batch = X[batches[i]:batches[i+1]]
-            rest_batch = rest[batches[i]:batches[i+1]]
-            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch.T, epoch)
+            if type(rest)==np.ndarray:
+                rest_batch = rest[batches[i]:batches[i+1]].T
+            else:
+                rest_batch = rest
+            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, epoch)
             
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
@@ -254,7 +270,7 @@ class topic_model_1layer:
 
         return lowerbound, recon_err, KLD, KLD_train
 
-    def getLowerBound(self,data,epoch):
+    def getLowerBound(self, data, epoch, rest=None):
         """Use this method for example to compute lower bound on testset"""
         lowerbound = 0
         recon_err = 0
@@ -268,8 +284,11 @@ class topic_model_1layer:
         for i in xrange(0,len(batches)-1):
             if batches[i+1]<N:
                 X_batch = data[batches[i]:batches[i+1]]
-                rest_batch = rest[batches[i]:batches[i+1]]
-                lb_batch, recon_batch = self.lowerbound(X_batch.T, rest_batch.T, epoch)
+                if type(rest)==np.ndarray:
+                    rest_batch = rest[batches[i]:batches[i+1]].T
+                else:
+                    rest_batch=None
+                lb_batch, recon_batch = self.lowerbound(X_batch.T, epoch, rest=rest_batch)
             else:
                 lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(
 

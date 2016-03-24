@@ -33,7 +33,7 @@ if __name__=="__main__":
     n_total, empty = x_csc.shape
 
     x_train = x_csc[:argdict['trainset_size'],:]
-    x_test = x_csc[n_total-1-argdict['testset_size']:n_total-1,:] #always same test set
+    x_test = x_csc[n_total-1-argdict['testset_size']:n_total,:] #always same test set
     n_train, argdict['voc_size'] = x_train.shape
     n_test = argdict['testset_size']
 
@@ -81,9 +81,9 @@ if __name__=="__main__":
         if epoch % argdict['save_every'] == 0:    
 
             print "saving stats, params at epoch", epoch
-            save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
-                                                                    recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
-            save_parameters(model, 'results/vae_own/'+sys.argv[1])
+            # save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
+            #                                                         recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
+            # save_parameters(model, 'results/vae_own/'+sys.argv[1])
 
             print "estimating perplexity on test set with", argdict['samples'], "samples"
             perplexity, perp_sem = perplexity_during_train(model, x_test, argdict)
@@ -109,9 +109,9 @@ if __name__=="__main__":
         testlowerbound_list = np.append(testlowerbound_list , testlowerbound/(n_test-n_test%argdict['batch_size']))
  
     print "done, saving stats, params"
-    save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
-                                                                    recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
-    save_parameters(model, 'results/vae_own/'+sys.argv[1])
+    # save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
+    #                                                                 recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
+    # save_parameters(model, 'results/vae_own/'+sys.argv[1])
 
 plot_stats(lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, perplexity_list, sys.argv[1])
 plot_used_dims(model, x_test, sys.argv[1]) 

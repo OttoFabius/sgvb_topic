@@ -21,6 +21,7 @@ class topic_model_2layer:
         self.learning_rate = th.shared(argdict['learning_rate'])
         self.batch_size = argdict['batch_size']
         sigmaInit = argdict['sigmaInit']
+        self.e = 1e-4
 
         We1 = th.shared(np.random.normal(0,1./np.sqrt(argdict['voc_size']),(argdict['HUe1'], argdict['voc_size'])).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
@@ -92,7 +93,7 @@ class topic_model_2layer:
         y = y_notnorm/T.sum(y_notnorm, axis=0)
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
-        KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+        KLD      = - T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/(theano.sparse.basic.sp_sum(x, axis=0))+self.e)
         KLD_train = KLD*KLD_factor
         recon_err =  T.sum(T.sum(-y + x * T.log(y),                  axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 

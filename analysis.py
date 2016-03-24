@@ -30,6 +30,7 @@ def plot_used_dims(model, x_test, model_title):
     mu, logvar = model.encode(x_test.todense().T)
     plt.hist(np.var(mu, 1), bins=np.linspace(0,3,15))
     plt.title('#used latent dimensions')
+    plt.xlim( 0, 14 )
     plt.xlabel('variance over means of encoded datapoint')
     plt.ylabel('#latent dimensions')
     plt.savefig("results/vae_own/" + model_title + '/used_latent_dims')
