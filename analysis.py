@@ -11,19 +11,38 @@ import sys
 import matplotlib.pyplot as plt
 
 
-def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, model_title):
-    plt.plot(-lb)
-    plt.plot(-lb_test)
+def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, sem, model_title, save_every):
     plt.plot(KLD)
     plt.plot(KLDtrain)
-    plt.plot(np.log(perplex))
+    plt.gca().set_xscale("log")
+    plt.xlabel('epochs')
+    plt.ylabel('log KLD')
+    plt.title('KL Divergence')
+    plt.legend(['KLD', 'KLDused'])
+    plt.savefig("results/vae_own/" + model_title + '/kld')
+    plt.close()
+
+    plt.plot(-lb)
+    plt.plot(-lb_test)
     plt.gca().set_xscale("log")
     plt.xlabel('epochs')
     plt.ylabel('lowerbound of log likelihood')
-    plt.ylim( (0, 10) )
-    plt.title('stats with min perplexity ' + str(np.min(perplex)))
-    plt.legend(['train', 'test', 'KLD', 'KLDused', 'logperplex'])
-    plt.savefig("results/vae_own/" + model_title + '/stats')
+    plt.title('stats')
+    plt.legend(['train', 'test'])
+    plt.savefig("results/vae_own/" + model_title + '/lb')
+    plt.close()
+
+    xaxis = np.arange(np.size(perplex))*(save_every)
+    plt.plot(xaxis, perplex)
+    plt.plot(xaxis, perplex+sem, '-')
+    plt.plot(xaxis, perplex-sem, '-')
+    plt.gca().set_xscale("log")
+    plt.ylim((600, 1200))
+    plt.legend(['perplexity', 'upper confidence', 'lower confidence'])
+    plt.xlabel('epochs')
+    plt.ylabel('perplexity')
+    plt.title('perplexity per 10 epochs with min perplexity ' + str(np.min(perplex)))
+    plt.savefig("results/vae_own/" + model_title + '/perplex')
 
 def plot_used_dims(model, x_test, model_title):
     plt.figure()

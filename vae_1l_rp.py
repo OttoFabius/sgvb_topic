@@ -25,6 +25,7 @@ class topic_model_1layer:
         self.voc_size = argdict['voc_size']
         self.e = 1e-8
         self.rp = argdict['rp']
+        self.K = argdict['HUe1']
 
         We1 = th.shared(np.random.normal(0,1./np.sqrt(self.voc_size),(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
@@ -71,8 +72,8 @@ class topic_model_1layer:
 
         x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
 
-        if self.rp==1:
-            rest = T.matrix(name='rest')
+        rest = T.matrix(name='rest')
+
 
         epoch = T.iscalar('epoch')
 
@@ -249,15 +250,14 @@ class topic_model_1layer:
         batches = np.arange(0,N,self.batch_size)
         if batches[-1] != N:
             batches = np.append(batches,N)
-
+        rest_batch = np.zeros((self.batch_size, self.K))
         for i in xrange(0,len(batches)-2):
             
 
             X_batch = X[batches[i]:batches[i+1]]
             if type(rest)==np.ndarray:
                 rest_batch = rest[batches[i]:batches[i+1]].T
-            else:
-                rest_batch = rest
+                
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, epoch)
             
             lowerbound += lowerbound_batch
@@ -280,15 +280,13 @@ class topic_model_1layer:
         if batches[-1] != N:
             batches = np.append(batches,N)
 
-
+        rest_batch = np.zeros((self.batch_size, self.K))
         for i in xrange(0,len(batches)-1):
             if batches[i+1]<N:
                 X_batch = data[batches[i]:batches[i+1]]
                 if type(rest)==np.ndarray:
                     rest_batch = rest[batches[i]:batches[i+1]].T
-                else:
-                    rest_batch=None
-                lb_batch, recon_batch = self.lowerbound(X_batch.T, epoch, rest=rest_batch)
+                lb_batch, recon_batch = self.lowerbound(X_batch.T, rest_batch, epoch)
             else:
                 lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(
 
