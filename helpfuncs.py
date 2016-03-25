@@ -193,45 +193,47 @@ def convert_to_matrix(dataset='kos', n_docs_max=3000):
 	np.save(str(filename).rsplit('.')[0] + '_matrix.npy', docs) 
 
 def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
-	"""converts text file to scipy sparse matrix
-	Created for NY Times dataset.
-	text file must only contain '.' for the extension and must be structured as follows:
-	first line contains the number of documents
-	second line the vocabulary size
-	third line the total number of words (unused currently)
+    """converts text file to scipy sparse matrix
+    Created for NY Times dataset.
+    text file must only contain '.' for the extension and must be structured as follows:
+    first line contains the number of documents
+    second line the vocabulary size
+    third line the total number of words (unused currently)
 
-	each line thereafter contains {doc_id word_id word_freq}"""
-	filename = 'data/'+dataset+'/docword.txt'
-	f = open(filename)
-	n_docs = int(f.readline())
-	voc_size = int(f.readline())
+    each line thereafter contains {doc_id word_id word_freq}"""
+    filename = 'data/'+dataset+'/docword.txt'
+    f = open(filename)
+    n_docs = int(f.readline())
+    voc_size = int(f.readline())
 
-	f.readline() #total words
+    f.readline() #total words
+    print 'filling lil matrix'
+    docs 	= lil_matrix((n_docs_max, voc_size))
+    for i, line in enumerate(f):
+        ws = line.split()	
+    	if int(ws[0])% 100 == 0:
+    		print 'doc nr', int(ws[0])
 
-	docs 	= lil_matrix((n_docs_max, voc_size))
-	for i, line in enumerate(f):
+    	if int(ws[0])==n_docs_max:
+    		break
+    	docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
 
-		ws = line.split()	
-		if int(ws[0])% 100 == 0:
-			print 'doc nr', int(ws[0])
+    print 'getting indices'
+    row_indices = np.ndarray.flatten(np.array(np.nonzero(docs.sum(1)>min_per_doc)[0]))
+    shuffle(row_indices)
+    print 'converting to csr'
+    docs = csr_matrix(docs)
+    print "taking out selected rows"
+    docs_pruned = docs[row_indices,:]
+    print 'converting back to lil'
 
-		if int(ws[0])==n_docs_max:
-			break
-		docs[int(ws[0])-1, int(ws[1])-1] = int(ws[2])
-
-	print 'removing too small docs and shuffling the rest'
-	# row_indices = np.ndarray.flatten(np.array(np.nonzero(docs.sum(1)>min_per_doc)[0]))
-	shuffle(row_indices)
-	docs_pruned = csc_matrix(docs[row_indices,:])
-	print 'done'
-
-	docs_pruned_lil = lil_matrix(docs_pruned)
+    docs_pruned_lil = lil_matrix(docs_pruned)
 	
-	print 'saving as ' + filename.strip('.txt')+'_matrix.pklz'
-	f = gzip.open(filename.strip('.txt')+'_matrix.pklz','wb')
-	pickle.dump(docs_pruned_lil, f)
-	f.close()
-	print 'done'
+    # print 'saving as ' + filename.strip('.txt')+'_matrix.pklz'
+    # f = gzip.open(filename.strip('.txt')+'_matrix.pklz','wb')
+    # pickle.dump(docs_pruned_lil, f)
+    # f.close()
+    # print 'done'
 
 def initialize_model(argdict):
     print "initializing model + graph..."
