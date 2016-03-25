@@ -229,11 +229,11 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
 
     docs_pruned_lil = lil_matrix(docs_pruned)
 	
-    # print 'saving as ' + filename.strip('.txt')+'_matrix.pklz'
-    # f = gzip.open(filename.strip('.txt')+'_matrix.pklz','wb')
-    # pickle.dump(docs_pruned_lil, f)
-    # f.close()
-    # print 'done'
+    print 'saving as ' + filename.strip('.txt')+'_matrix.pklz'
+    f = gzip.open(filename.strip('.txt')+'_matrix.pklz','wb')
+    pickle.dump(docs_pruned_lil, f)
+    f.close()
+    print 'done'
 
 def initialize_model(argdict):
     print "initializing model + graph..."
