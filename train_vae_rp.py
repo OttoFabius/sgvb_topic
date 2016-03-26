@@ -24,13 +24,14 @@ if __name__=="__main__":
     x = load_dataset(argdict)
 
     x_csc = csc_matrix(x)
-    
+
+    # TODO put code below in load_dataset, include train/test splits
     if argdict['rp']==1:        
         print 'using random projection of rest in encoder'
         f = gzip.open('data/'+argdict['dataset']+'/data_proj_'+str(argdict['minfreq'])+'.pklz','rb')
         rest = pickle.load(f)
         f.close()
-
+    
 
     n_total, empty = x_csc.shape
     n_test = argdict['testset_size']

@@ -354,7 +354,8 @@ def load_parameters(model, path):
     for name,v in zip(names,v_list): 
         model.v[name].set_value(v)
 
-def create_rp(K=100, dataset = 'kos', mincount=50):
+def create_rp(K=100, dataset = 'kos', mincount=50, orth=False):
+    #memory error for orth = true on server
 
     f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','rb')
     data_rest = pickle.load(f)
@@ -366,8 +367,9 @@ def create_rp(K=100, dataset = 'kos', mincount=50):
     print N, 'datapoints', 'and', D, 'dimensions'
     print 'creating R'
     R = np.random.normal(0, 1/np.sqrt(D), [D, K])
-    print 'orthogonalize'
-    R_o = orth(R)
+    if orth==True:
+        print 'orthogonalize'
+        R_o = orth(R)
     print 'check orth, max is ', np.max(np.dot(R_o.T, R_o))
     print 'projecting data'
     data_proj = data.dot(R)
