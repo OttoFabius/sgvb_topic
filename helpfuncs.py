@@ -369,14 +369,14 @@ def create_rp(K=100, dataset = 'kos', mincount=50, orth=False):
     R = np.random.normal(0, 1/np.sqrt(D), [D, K])
     if orth==True:
         print 'orthogonalize'
-        R_o = orth(R)
-    print 'check orth, max is ', np.max(np.dot(R_o.T, R_o))
+        R = orth(R)
+        print 'check orth, max is ', np.max(np.dot(R.T, R))
     print 'projecting data'
     data_proj = data.dot(R)
 
     print "saving data"
     f = gzip.open('data/'+dataset+'/R_' + str(mincount) + '.pklz','wb')
-    pickle.dump(R_o, f)
+    pickle.dump(R, f)
     f.close()
 
     f = gzip.open('data/'+dataset+'/data_proj_' + str(mincount) + '.pklz','wb')
