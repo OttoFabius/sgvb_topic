@@ -356,7 +356,7 @@ def load_parameters(model, path):
 
 def create_rp(K=100, dataset = 'kos', mincount=50, orth=False):
     #memory error for orth = true on server
-
+    #using something K = 1000 for ny as a baseline
     f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','rb')
     data_rest = pickle.load(f)
     f.close()
