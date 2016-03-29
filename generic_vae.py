@@ -19,7 +19,7 @@ class topic_model:
         
         self.learning_rate = th.shared(argdict['learning_rate'])
         self.batch_size = argdict['batch_size']
-        self.e = 1e-8
+        self.e = 1
         self.rp = argdict['rp']
 
         #structure
@@ -133,7 +133,7 @@ class topic_model:
         y = y_notnorm/T.sum(y_notnorm, axis=0)
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
-        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e)
         KLD_train = KLD*KLD_factor
 
         recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y+1e-20), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
@@ -158,7 +158,7 @@ class topic_model:
             new_m = self.b1 * gradient + (1 - self.b1) * m
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v
 
-            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-20)
+            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-10)
 
             updates[m] = new_m
             updates[v] = new_v
@@ -290,7 +290,7 @@ class topic_model:
                 rest_batch = rest[batches[i]:batches[i+1]].T
                 
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, epoch)
-            
+                
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
             KLD += KLD_batch

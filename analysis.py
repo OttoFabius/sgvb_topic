@@ -1,7 +1,4 @@
 from helpfuncs import load_parameters, save_parameters, parse_config, load_dataset, perplexity_during_train
-from vae_1l import topic_model_1layer
-from vae_2l import topic_model_2layer
-from vae_lin import topic_model_linear
 import gzip
 import cPickle as pickle
 from scipy.sparse import csr_matrix, csc_matrix

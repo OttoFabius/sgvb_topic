@@ -8,11 +8,7 @@ import ConfigParser
 import matplotlib.pyplot as plt
 from random import shuffle
 from scipy.linalg import orth
-from vae_1l_rp import topic_model_1layer
-from vae_2l_rp import topic_model_2layer
-from vae_21l import topic_model_21layer
 from vae_20l import topic_model_20layer
-from vae_lin import topic_model_linear
 
 def parse_config(fname):
     config = ConfigParser.ConfigParser()
@@ -237,13 +233,8 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
 
 def initialize_model(argdict):
     print "initializing model + graph..."
-    if argdict['HUe2']==0:
-        model = topic_model_1layer(argdict)
-    elif argdict['HUd2']!=0:
-        model = topic_model_2layer(argdict)
-    elif argdict['HUd1']!=0:
-        model = topic_model_21layer(argdict)    
-    elif argdict['HUd1']==0:
+  
+    if argdict['HUd1']==0:
         model = topic_model_20layer(argdict)
 
     else:
