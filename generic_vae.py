@@ -10,16 +10,18 @@ from collections import OrderedDict
 import cPickle as pickle
 from scipy.sparse import csr_matrix, csc_matrix
 from scipy.special import gammaln
+from theano import ProfileMode
 
 def relu(x):
     return T.switch(x<0,0,x)
 
 class topic_model:
     def __init__(self, argdict):
-        
+
+
         self.learning_rate = th.shared(argdict['learning_rate'])
         self.batch_size = argdict['batch_size']
-        self.e = 1
+        self.e = 1e-10
         self.rp = argdict['rp']
 
         #structure
@@ -163,9 +165,10 @@ class topic_model:
             updates[m] = new_m
             updates[v] = new_v
 
-
-        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')
-        self.lowerbound  = th.function([x, rest, epoch], [lowerbound, recon_err], on_unused_input='ignore')
+        
+        profmode = th.ProfileMode(optimizer='fast_run', linker=th.gof.OpWiseCLinker())
+        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')#, mode=profmode)
+        self.lowerbound  = th.function([x, rest, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
 
     def encode(self, x, rest=None):
         """Helper function to compute the encoding of a datapoint or minibatch to z"""
@@ -268,8 +271,7 @@ class topic_model:
         return log_perplexity_doc, n_words
 
     def iterate(self, X, epoch, rest=None):
-        """Main method, slices data in minibatches and performs a training epoch. Returns LB for whole dataset
-            added a progress print during an epoch (comment/uncomment line 164)"""
+        """Main method, slices data in minibatches and performs a training epoch. """
 
         lowerbound = 0
         recon_err = 0
@@ -314,7 +316,7 @@ class topic_model:
                 X_batch = data[batches[i]:batches[i+1]]
                 if type(rest)==np.ndarray:
                     rest_batch = rest[batches[i]:batches[i+1]].T
-                lb_batch, recon_batch = self.lowerbound(X_batch.T, rest_batch, epoch)
+                lb_batch, recon_batch, KLD = self.lowerbound(X_batch.T, rest_batch, epoch)
             else:
                 lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(
 
