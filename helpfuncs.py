@@ -358,21 +358,28 @@ def create_rp(K=100, dataset = 'kos', mincount=50, orth=False):
     print N, 'datapoints', 'and', D, 'dimensions'
     print 'creating R'
     R = np.random.normal(0, 1/np.sqrt(D), [D, K])
+    print 'R shape is', R.shape
     if orth==True:
         print 'orthogonalize'
         R = orth(R)
         print 'check orth, max is ', np.max(np.dot(R.T, R))
     print 'projecting data'
     data_proj = data.dot(R)
+    print 'data proj shape is', data_proj.shape, 'size in memory is', data_proj.nbytes/(1024*1024), 'MB'
 
     print "saving data"
-    f = gzip.open('data/'+dataset+'/R_' + str(mincount) + '.pklz','wb')
-    pickle.dump(R, f)
-    f.close()
+    np.save('data/'+dataset+'/R_' + str(mincount)+'.npy', R)
+    np.save('data/'+dataset+'/data_proj_' + str(mincount)+'.npy', data_proj)
 
-    f = gzip.open('data/'+dataset+'/data_proj_' + str(mincount) + '.pklz','wb')
-    pickle.dump(data_proj, f)
-    f.close()
+
+
+    # f = gzip.open('data/'+dataset+'/R_' + str(mincount) + '.pklz','wb')
+    # pickle.dump(R, f)
+    # f.close()
+
+    # f = gzip.open('data/'+dataset+'/data_proj_' + str(mincount) + '.pklz','wb')
+    # pickle.dump(data_proj, f)
+    # f.close()
 
 
 
