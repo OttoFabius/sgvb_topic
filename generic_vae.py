@@ -293,7 +293,8 @@ class topic_model:
                 
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, epoch)
 
-            if KLD
+            if KLD_batch>2000:
+                print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
                 
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
