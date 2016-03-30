@@ -138,7 +138,7 @@ class topic_model:
         KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e)
         KLD_train = KLD*KLD_factor
 
-        recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y+1e-20), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+        recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y+self.e), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e)
         # recon_err =  T.sum(theano.sparse.sp_sum(theano.sparse.basic.mul(x, T.log(y)), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
 
@@ -292,6 +292,8 @@ class topic_model:
                 rest_batch = rest[batches[i]:batches[i+1]].T
                 
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, epoch)
+
+            if KLD
                 
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
