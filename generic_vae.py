@@ -13,7 +13,7 @@ from scipy.special import gammaln
 from theano import ProfileMode
 
 def relu(x, alpha=0):
-    return T.switch(x<0,alpha*x,x)
+    return T.switch(x > 0, x, alpha * x)
 
 class topic_model:
     def __init__(self, argdict):
@@ -45,27 +45,27 @@ class topic_model:
 
         if argdict['HUe2']==0:
             We1 = th.shared(np.random.normal(0,1./np.sqrt(self.voc_size),(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
-            be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+            be1 = th.shared(np.random.normal(0,1./np.sqrt(self.voc_size),(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
             H_e_last = argdict['HUe1']
 
         elif argdict['HUe2']!=0:
             We1 = th.shared(np.random.normal(0,1./np.sqrt(argdict['voc_size']),(argdict['HUe1'], argdict['voc_size'])).astype(th.config.floatX), name = 'We1')
-            be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+            be1 = th.shared(np.random.normal(0,1./np.sqrt(argdict['voc_size']),(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
             We2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'], argdict['HUe1'])).astype(th.config.floatX), name = 'We2')
-            be2 = th.shared(np.random.normal(0,1,(argdict['HUe2'],1)).astype(th.config.floatX), name = 'be2', broadcastable=(False,True))
+            be2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'],1)).astype(th.config.floatX), name = 'be2', broadcastable=(False,True))
 
             H_e_last = argdict['HUe2']
 
         We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,H_e_last)).astype(th.config.floatX), name = 'We_mu')
-        be_mu = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
+        be_mu = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
         We_var = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ, H_e_last)).astype(th.config.floatX), name = 'We_var')
-        be_var = th.shared(np.random.normal(0,1,(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
+        be_var = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
         Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
-        bd1 = th.shared(np.random.normal(0,1,(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
+        bd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
         
         if argdict['HUd2']==0:
             H_d_first = self.voc_size
@@ -267,7 +267,11 @@ class topic_model:
         t4 = gammaln(n_words+1)
         t6 = -np.sum(gammaln(doc_unseen+1))
         log_perplexity_doc = t3# + t4 + t6
+        print log_perplexity_doc
+        if log_perplexity_doc<-2000:
 
+            print log_perplexity_doc, np.min(log_perplexity_doc_vec), mult_params[np.argmin(log_perplexity_doc_vec)], doc_unseen[np.argmin(log_perplexity_doc_vec)]
+            raw_input()
         return log_perplexity_doc, n_words
 
     def iterate(self, X, epoch, rest=None):
