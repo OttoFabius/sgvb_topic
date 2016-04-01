@@ -133,10 +133,10 @@ class topic_model:
             H_d = relu(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
             y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd3'], H_d)  + self.params['bd3'])
 
-        y = y_notnorm/T.sum(y_notnorm, axis=0)
+        y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)
 
-        KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
-        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
+        KLD_factor = T.minimum(1, epoch/self.KLD_burnin) #no free
+        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
         KLD_train = KLD*KLD_factor
 
         recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y+1e-10), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
@@ -168,7 +168,7 @@ class topic_model:
 
         
         profmode = th.ProfileMode(optimizer='fast_run', linker=th.gof.OpWiseCLinker())
-        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')#, mode=profmode)
+        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train, logvar], updates=updates, on_unused_input='ignore')#, mode=profmode)
         self.lowerbound  = th.function([x, rest, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
 
     def encode(self, x, rest=None):
@@ -296,10 +296,11 @@ class topic_model:
             if type(rest)==np.ndarray:
                 rest_batch = rest[batches[i]:batches[i+1]].T
                 
-            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, epoch)
+            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, logvar = self.update(X_batch.T, rest_batch, epoch)
 
             if KLD_batch>5000:
                 print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
+                print logvar, np.max(logvar)
                 
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
