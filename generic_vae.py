@@ -12,8 +12,8 @@ from scipy.sparse import csr_matrix, csc_matrix
 from scipy.special import gammaln
 from theano import ProfileMode
 
-def relu(x):
-    return T.switch(x<0,0,x)
+def relu(x, alpha=0):
+    return T.switch(x<0,alpha*x,x)
 
 class topic_model:
     def __init__(self, argdict):
