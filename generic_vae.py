@@ -13,7 +13,7 @@ from scipy.special import gammaln
 from theano import ProfileMode
 
 def relu(x, alpha=0):
-    return T.switch(x > 0, x, alpha * x)
+    return T.switch(x > 0, x, alpha * x) #leaky relu in encoder for stability
 
 class topic_model:
     def __init__(self, argdict):
@@ -23,6 +23,7 @@ class topic_model:
         self.batch_size = argdict['batch_size']
         self.e_doc = 1e-2 #no empty documents
         self.rp = argdict['rp']
+        self.alpha = 0.01
 
         #structure
         self.dimZ = argdict['dimZ']
@@ -112,11 +113,11 @@ class topic_model:
         if self.rp==1:
             H_lin += rest
 
-        H = relu(H_lin, alpha=0.01)
+        H = relu(H_lin, alpha=self.alpha)
 
         if self.HUe2!=0:
             H2_lin = T.dot(self.params['We2'], H) + self.params['be2']
-            H = relu(H2_lin, alpha=0.01)
+            H = relu(H2_lin, alpha=self.alpha)
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
@@ -189,14 +190,14 @@ class topic_model:
         if type(rest)==np.ndarray:
             H = H+rest
 
-        H[H<0] = 0
+        H[H<0] = H[H<0]*self.alpha
 
         if self.HUe2!=0:
             We2 = self.params["We2"].get_value() 
             be2 = self.params["be2"].get_value() 
 
             H =  np.dot(We2, H) + be2
-            H[H<0] = 0
+            H[H<0] = H[H<0]*self.alpha
 
         mu  = np.dot(We_mu, H)  + be_mu
         logvar = np.dot(We_var, H) + be_var
@@ -267,11 +268,11 @@ class topic_model:
         t4 = gammaln(n_words+1)
         t6 = -np.sum(gammaln(doc_unseen+1))
         log_perplexity_doc = t3# + t4 + t6
-        print log_perplexity_doc
+
         if log_perplexity_doc<-2000:
 
-            print log_perplexity_doc, np.min(log_perplexity_doc_vec), mult_params[np.argmin(log_perplexity_doc_vec)], doc_unseen[np.argmin(log_perplexity_doc_vec)]
-            raw_input()
+            print 'large log perplex doc!', log_perplexity_doc, np.min(log_perplexity_doc_vec), mult_params[np.argmin(log_perplexity_doc_vec)], doc_unseen[np.argmin(log_perplexity_doc_vec)]
+
         return log_perplexity_doc, n_words
 
     def iterate(self, X, epoch, rest=None):
