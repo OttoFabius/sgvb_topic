@@ -63,7 +63,7 @@ class topic_model:
         be_mu = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
         We_var = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ, H_e_last)).astype(th.config.floatX), name = 'We_var')
-        be_var = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
+        be_var = th.shared(np.random.normal(0,1e-3./np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
         Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
         bd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
@@ -298,7 +298,7 @@ class topic_model:
                 
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, epoch)
 
-            if KLD_batch>4000:
+            if KLD_batch>5000:
                 print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
                 
             lowerbound += lowerbound_batch
