@@ -21,7 +21,7 @@ class topic_model:
 
         self.learning_rate = th.shared(argdict['learning_rate'])
         self.batch_size = argdict['batch_size']
-        self.e = 1e-10
+        self.e_doc = 1e-2 #no empty documents
         self.rp = argdict['rp']
 
         #structure
@@ -112,11 +112,11 @@ class topic_model:
         if self.rp==1:
             H_lin += rest
 
-        H = relu(H_lin)
+        H = relu(H_lin, alpha=0.01)
 
         if self.HUe2!=0:
             H2_lin = T.dot(self.params['We2'], H) + self.params['be2']
-            H = relu(H2_lin)
+            H = relu(H2_lin, alpha=0.01)
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
@@ -135,10 +135,10 @@ class topic_model:
         y = y_notnorm/T.sum(y_notnorm, axis=0)
 
         KLD_factor = T.minimum(1,T.maximum(0, (epoch - self.KLD_free)/self.KLD_burnin))
-        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e)
+        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
         KLD_train = KLD*KLD_factor
 
-        recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y+self.e), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e)
+        recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y+1e-10), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
         # recon_err =  T.sum(theano.sparse.sp_sum(theano.sparse.basic.mul(x, T.log(y)), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
 

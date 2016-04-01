@@ -95,17 +95,21 @@ def perplexity_during_train(model, data, argdict, rest=None, selected_features=N
 
     return perp_mean, perp_sem
 
-def perplexity_rest(data_rest):
+def perplexity_rest(data_train, indices_used, data_test):
 
-    means = csc_matrix.mean(data_rest, axis=0)
-
+    means = csc_matrix.mean(csc_matrix(data_train), axis=0)
     mult_params = np.array(means/np.sum(means))[0,:]
     perp=0
-    for doc in xrange(data_rest.shape[0]):
+    data_test = csc_matrix(data_test)
 
-        perp_doc = np.sum(data_rest[doc, :]*np.log(mult_params))
+    data_test[:,indices_used]=0
+
+    for doc in xrange(data_test.shape[0]):
+
+        perp_doc = np.sum(data_test[doc, :]*np.log(mult_params))
         perp+=perp_doc
-    return perp
+
+    return perp/csc_matrix.sum(data_test)
 
 
 def load_dataset(argdict):
