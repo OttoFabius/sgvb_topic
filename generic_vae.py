@@ -13,7 +13,7 @@ from scipy.special import gammaln
 from theano import ProfileMode
 
 def relu(x, alpha=0):
-    return T.switch(x > 0, x, alpha * x) #leaky relu in encoder for stability
+    return T.switch(x > 0, x, alpha * x) #leaky relu in 1-layer encoder for stability
 
 class topic_model:
     def __init__(self, argdict):
@@ -117,7 +117,7 @@ class topic_model:
 
         if self.HUe2!=0:
             H2_lin = T.dot(self.params['We2'], H) + self.params['be2']
-            H = relu(H2_lin, alpha=self.alpha)
+            H = relu(H2_lin)
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
@@ -197,7 +197,7 @@ class topic_model:
             be2 = self.params["be2"].get_value() 
 
             H =  np.dot(We2, H) + be2
-            H[H<0] = H[H<0]*self.alpha
+            H[H<0] = 0
 
         mu  = np.dot(We_mu, H)  + be_mu
         logvar = np.dot(We_var, H) + be_var
@@ -269,7 +269,7 @@ class topic_model:
         t6 = -np.sum(gammaln(doc_unseen+1))
         log_perplexity_doc = t3# + t4 + t6
 
-        if log_perplexity_doc<-2000:
+        if log_perplexity_doc<-5000:
 
             print 'large log perplex doc!', log_perplexity_doc, np.min(log_perplexity_doc_vec), mult_params[np.argmin(log_perplexity_doc_vec)], doc_unseen[np.argmin(log_perplexity_doc_vec)]
 
@@ -298,7 +298,7 @@ class topic_model:
                 
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, epoch)
 
-            if KLD_batch>2000:
+            if KLD_batch>4000:
                 print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
                 
             lowerbound += lowerbound_batch
