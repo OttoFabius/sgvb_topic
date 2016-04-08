@@ -136,7 +136,7 @@ class topic_model:
         y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)
 
         KLD_factor = T.maximum(1, epoch/self.KLD_burnin + self.KLD_free) #KLD_free is start value
-        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
+        KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
         KLD_train = KLD*KLD_factor
 
         recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y+1e-10), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
@@ -161,7 +161,7 @@ class topic_model:
             new_m = self.b1 * gradient + (1 - self.b1) * m
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v
 
-            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v + 1e-7))
+            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v + 1e-10))
 
             updates[m] = new_m
             updates[v] = new_v
