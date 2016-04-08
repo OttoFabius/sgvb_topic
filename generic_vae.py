@@ -63,7 +63,7 @@ class topic_model:
         be_mu = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
         We_var = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ, H_e_last)).astype(th.config.floatX), name = 'We_var')
-        be_var = th.shared(np.random.normal(0,1e-3/np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
+        be_var = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
         Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
         bd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
@@ -135,7 +135,7 @@ class topic_model:
 
         y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)
 
-        KLD_factor = T.minimum(1, epoch/self.KLD_burnin) #no free
+        KLD_factor = T.maximum(1, epoch/self.KLD_burnin + KLD_free) #KLD_free is start value
         KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
         KLD_train = KLD*KLD_factor
 
@@ -161,7 +161,7 @@ class topic_model:
             new_m = self.b1 * gradient + (1 - self.b1) * m
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v
 
-            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-10)
+            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-7)
 
             updates[m] = new_m
             updates[v] = new_v
@@ -298,7 +298,7 @@ class topic_model:
                 
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, logvar = self.update(X_batch.T, rest_batch, epoch)
 
-            if KLD_batch>5000:
+            if KLD_batch>10:
                 print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
                 print logvar, np.max(logvar)
                 
