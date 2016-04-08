@@ -16,7 +16,7 @@ def relu(x, alpha=0):
     return T.switch(x > 0, x, alpha * x) #leaky relu in 1-layer encoder for stability
 
 def cap_logvar(logvar):
-    return T.switch(logvar<4, 4)
+    return T.switch(logvar<4, logvar, 4)
 
 class topic_model:
     def __init__(self, argdict):
@@ -57,21 +57,21 @@ class topic_model:
 
         elif argdict['HUe2']!=0:
             We1 = th.shared(np.random.normal(0,1./np.sqrt(argdict['voc_size']),(argdict['HUe1'], argdict['voc_size'])).astype(th.config.floatX), name = 'We1')
-            be1 = th.shared(np.random.normal(0,1./np.sqrt(argdict['voc_size']),(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+            be1 = th.shared(np.zeros((argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
             We2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'], argdict['HUe1'])).astype(th.config.floatX), name = 'We2')
-            be2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'],1)).astype(th.config.floatX), name = 'be2', broadcastable=(False,True))
+            be2 = th.shared(np.zeros((argdict['HUe2'],1)).astype(th.config.floatX), name = 'be2', broadcastable=(False,True))
 
             H_e_last = argdict['HUe2']
 
         We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,H_e_last)).astype(th.config.floatX), name = 'We_mu')
-        be_mu = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
+        be_mu = th.shared(np.zeros((self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
         We_var = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ, H_e_last)).astype(th.config.floatX), name = 'We_var')
-        be_var = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
+        be_var = th.shared(np.zeros((self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
 
         Wd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
-        bd1 = th.shared(np.random.normal(0,1./np.sqrt(self.dimZ),(argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
+        bd1 = th.shared(np.zeros((argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
         
         if argdict['HUd2']==0:
             H_d_first = self.voc_size
@@ -80,10 +80,10 @@ class topic_model:
             H_d_first = argdict['HUd2']
 
             Wd3 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUd2'])),(argdict['voc_size'], argdict['HUd2'])).astype(th.config.floatX), name = 'Wd3')
-            bd3 = th.shared(np.random.normal(0,1,(argdict['voc_size'],1)).astype(th.config.floatX), name = 'bd3', broadcastable=(False,True))
+            bd3 = th.shared(np.zeros((argdict['voc_size'],1)).astype(th.config.floatX), name = 'bd3', broadcastable=(False,True))
 
         Wd2 = th.shared(np.random.normal(0,1/np.sqrt(float(argdict['HUd1'])),(H_d_first, argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
-        bd2 = th.shared(np.random.normal(0,1,(H_d_first,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
+        bd2 = th.shared(np.zeros((H_d_first,1)).astype(th.config.floatX), name = 'bd2', broadcastable=(False,True))
 
         self.params = dict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu),  \
             ('We_var', We_var), ('be_var', be_var), ('Wd1', Wd1), ('bd1', bd1), ('Wd2', Wd2), ('bd2', bd2)])
@@ -110,6 +110,7 @@ class topic_model:
         x = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
         rest = T.matrix(name='rest')
         epoch = T.iscalar('epoch')
+        unused_sum = T.scalar('unused_sum')
 
         srng = T.shared_randomstreams.RandomStreams()
 
@@ -139,10 +140,9 @@ class topic_model:
             H_d = relu(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
             y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd3'], H_d)  + self.params['bd3'])
 
-        if self.full_vocab==1:
-            y = y_notnorm/T.sum(y_notnorm + unused_sum, axis=0, keepdims=True)
-        elif self.full_vocab=0:
-            y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)
+
+        y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)*(1-unused_sum)
+
 
         KLD_factor = T.maximum(1, epoch/self.KLD_burnin + self.KLD_free) #KLD_free is start value
         KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
@@ -178,7 +178,7 @@ class topic_model:
         
         profmode = th.ProfileMode(optimizer='fast_run', linker=th.gof.OpWiseCLinker())
         self.update = th.function([x, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train, logvar], updates=updates, on_unused_input='ignore')#, mode=profmode)
-        self.lowerbound  = th.function([x, rest, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
+        self.lowerbound  = th.function([x, rest, unused_sum, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
 
     def encode(self, x, rest=None):
         """Helper function to compute the encoding of a datapoint or minibatch to z"""
@@ -246,7 +246,7 @@ class topic_model:
 
         return y_notnorm
 
-    def calculate_perplexity(self, doc, rest=None, selected_features=None, means=None, seen_words=0.5, samples=1):
+    def calculate_perplexity(self, doc, unused_sum, rest=None, selected_features=None, means=None, seen_words=0.5, samples=1):
         doc = np.array(doc.todense())
         
         if selected_features!=None:
@@ -271,7 +271,7 @@ class topic_model:
         mu, logvar = self.encode(doc_seen, rest=rest)
         y_notnorm = self.decode(mu, logvar)
 
-        mult_params = y_notnorm/np.sum(y_notnorm, axis=0)
+        mult_params = y_notnorm/np.sum(y_notnorm, axis=0)*(1-unused_sum)
         n_words = np.sum(doc_unseen)
         t3 = np.sum(doc_unseen*np.log(mult_params))
         t4 = gammaln(n_words+1)
@@ -284,7 +284,7 @@ class topic_model:
 
         return log_perplexity_doc, n_words
 
-    def iterate(self, X, epoch, rest=None):
+    def iterate(self, X, unused_sum, epoch, rest=None):
         """Main method, slices data in minibatches and performs a training epoch. """
 
         lowerbound = 0
@@ -304,8 +304,7 @@ class topic_model:
             X_batch = X[batches[i]:batches[i+1]]
             if type(rest)==np.ndarray:
                 rest_batch = rest[batches[i]:batches[i+1]].T
-                
-            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, logvar = self.update(X_batch.T, rest_batch, epoch)
+            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, logvar = self.update(X_batch.T, rest_batch, unused_sum, epoch)
 
             if KLD_batch>1000:
                 print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
@@ -318,7 +317,7 @@ class topic_model:
 
         return lowerbound, recon_err, KLD, KLD_train
 
-    def getLowerBound(self, data, epoch, rest=None):
+    def getLowerBound(self, data, unused_sum, epoch, rest=None):
         """Use this method for example to compute lower bound on testset"""
         lowerbound = 0
         recon_err = 0
@@ -334,7 +333,7 @@ class topic_model:
                 X_batch = data[batches[i]:batches[i+1]]
                 if type(rest)==np.ndarray:
                     rest_batch = rest[batches[i]:batches[i+1]].T
-                lb_batch, recon_batch, KLD = self.lowerbound(X_batch.T, rest_batch, epoch)
+                lb_batch, recon_batch, KLD = self.lowerbound(X_batch.T, rest_batch, unused_sum, epoch)
             else:
                 lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(
 

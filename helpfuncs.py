@@ -33,6 +33,7 @@ def parse_config(fname):
     argdict['samples'] = config.getint('parameters', 'samples_perplex')
     argdict['max_epochs'] = config.getint('parameters', 'max_epochs')
     argdict['rp'] = config.getint('parameters','rp')
+    argdict['full_vocab'] = config.getint('parameters', 'use_full_vocab')
 
     if argdict['dataset_num'] == 0:
         argdict['dataset']='kos'
@@ -67,7 +68,7 @@ def save_stats(fname, lowerbound, testlowerbound, KLD, KLD_used, recon_train, re
     np.save(fname + '/perplexity.npy', perplexity)
     np.save(fname + '/perp_sem.npy', perp_sem)
 
-def perplexity_during_train(model, data, argdict, rest=None, selected_features=None):
+def perplexity_during_train(model, data, unused_sum, argdict, rest=None, selected_features=None):
 
     samples = argdict['samples']
 
@@ -84,7 +85,7 @@ def perplexity_during_train(model, data, argdict, rest=None, selected_features=N
                 rest_doc = rest[docnr, :, np.newaxis]
             else:
                 rest_doc=None
-            log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, rest=rest_doc, selected_features=selected_features)
+            log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, unused_sum, rest=rest_doc, selected_features=selected_features)
             log_perplexity += log_perplexity_doc
             n_words += n_words_doc
 
@@ -109,7 +110,9 @@ def perplexity_rest(data_train, indices_used, data_test):
         perp_doc = np.sum(data_test[doc, :]*np.log(mult_params))
         perp+=perp_doc
 
-    return perp/csc_matrix.sum(data_test)
+    n_rest = csc_matrix.sum(data_test)
+
+    return perp/csc_matrix.sum(data_test), n_rest/n_total
 
 
 def load_dataset(argdict):
@@ -141,6 +144,19 @@ def load_dataset(argdict):
 	print "done"
 
 	return x
+
+def get_unused_sum(argdict):
+    if argdict['full_vocab']==0:
+        unused_sum = 0
+    elif argdict['full_vocab']==1:
+        f = gzip.open('data/'+argdict['dataset']+'/docword_means.pklz','rb')
+        means = pickle.load(f)
+        f.close()
+        f = gzip.open('data/'+argdict['dataset']+'/docword_' + str(argdict['minfreq']) + '_indices.pklz','rb')
+        indices = pickle.load(f)
+        unused_sum = 1 - np.sum(means[:,indices])/np.sum(means)
+        return unused_sum
+        
 
 def load_used_features(argdict):
 	

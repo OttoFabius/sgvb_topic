@@ -45,6 +45,9 @@ if __name__=="__main__":
         rest_train = None
         rest_test = None
 
+    unused_sum = get_unused_sum(argdict)
+
+
     argdict['voc_size'] = x_train.shape[1]
     print 'voc size:', argdict['voc_size'], "n_total:", n_total, "n_train:", n_train, "n_test:", n_test
 
@@ -64,7 +67,7 @@ if __name__=="__main__":
         epoch = 0
 
         print "estimating perplexity on test set with", argdict['samples'], "samples"
-        perplexity, perp_sem = perplexity_during_train(model, x_test, argdict, rest=rest_test)
+        perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
         perplexity_list = np.append(perplexity_list, perplexity)
         perp_sem_list = np.append(perp_sem_list, perp_sem)
         print "perplexity =", perplexity, 'with', perp_sem, 'sem'
@@ -84,7 +87,7 @@ if __name__=="__main__":
             # save_parameters(model, 'results/vae_own/'+sys.argv[1])
 
             print "estimating perplexity on test set with", argdict['samples'], "samples"
-            perplexity, perp_sem = perplexity_during_train(model, x_test, argdict, rest=rest_test)
+            perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
             perplexity_list = np.append(perplexity_list, perplexity)
             perp_sem_list = np.append(perp_sem_list, perp_sem)
             print "perplexity =", perplexity, 'with', perp_sem, 'sem'
@@ -96,8 +99,8 @@ if __name__=="__main__":
         if argdict['rp']==1:
             rest_train = rest_train[idx,:]
 
-        lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train, epoch, rest=rest_train)
-        testlowerbound, recon_test = model.getLowerBound(x_test, epoch, rest=rest_test)
+        lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train, unused_sum, epoch, rest=rest_train)
+        testlowerbound, recon_test = model.getLowerBound(x_test, unused_sum, epoch, rest=rest_test)
 
         if epoch == 1:
             print time.time() - start, 'seconds for first epoch'
