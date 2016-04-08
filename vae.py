@@ -308,7 +308,6 @@ class topic_model:
 
             if KLD_batch>1000:
                 print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
-                print logvar, np.max(logvar)
                 
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
