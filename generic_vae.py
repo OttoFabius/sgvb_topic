@@ -161,7 +161,7 @@ class topic_model:
             new_m = self.b1 * gradient + (1 - self.b1) * m
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v
 
-            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v) + 1e-7)
+            updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v + 1e-7))
 
             updates[m] = new_m
             updates[v] = new_v
