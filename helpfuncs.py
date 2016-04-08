@@ -146,7 +146,7 @@ def load_dataset(argdict):
 
 def get_unused_sum(argdict):
     if argdict['full_vocab']==0:
-        unused_sum = 0
+        unused_sum = 0.
     elif argdict['full_vocab']==1:
         f = gzip.open('data/'+argdict['dataset']+'/docword_means.pklz','rb')
         means = pickle.load(f)
@@ -154,7 +154,8 @@ def get_unused_sum(argdict):
         f = gzip.open('data/'+argdict['dataset']+'/docword_' + str(argdict['minfreq']) + '_indices.pklz','rb')
         indices = pickle.load(f)
         unused_sum = 1 - np.sum(means[:,indices])/np.sum(means)
-        return unused_sum
+
+    return unused_sum
         
 
 def load_used_features(argdict):

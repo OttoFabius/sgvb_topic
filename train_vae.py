@@ -47,7 +47,6 @@ if __name__=="__main__":
 
     unused_sum = get_unused_sum(argdict)
 
-
     argdict['voc_size'] = x_train.shape[1]
     print 'voc size:', argdict['voc_size'], "n_total:", n_total, "n_train:", n_train, "n_test:", n_test
 
