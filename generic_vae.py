@@ -135,7 +135,7 @@ class topic_model:
 
         y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)
 
-        KLD_factor = T.maximum(1, epoch/self.KLD_burnin + KLD_free) #KLD_free is start value
+        KLD_factor = T.maximum(1, epoch/self.KLD_burnin + self.KLD_free) #KLD_free is start value
         KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
         KLD_train = KLD*KLD_factor
 
