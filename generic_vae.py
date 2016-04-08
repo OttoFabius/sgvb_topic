@@ -298,7 +298,7 @@ class topic_model:
                 
             lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, logvar = self.update(X_batch.T, rest_batch, epoch)
 
-            if KLD_batch>10:
+            if KLD_batch>1000:
                 print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
                 print logvar, np.max(logvar)
                 
