@@ -15,14 +15,19 @@ from theano import ProfileMode
 def relu(x, alpha=0):
     return T.switch(x > 0, x, alpha * x) #leaky relu in 1-layer encoder for stability
 
+def cap_logvar(logvar):
+    return T.switch(logvar<4, 4)
+
 class topic_model:
     def __init__(self, argdict):
 
 
         self.learning_rate = th.shared(argdict['learning_rate'])
         self.batch_size = argdict['batch_size']
-        self.e_doc = 1e-2 #no empty documents
         self.rp = argdict['rp']
+        self.full_vocab = argdict['full_vocab']
+
+        self.e_doc = 1e-2 #no empty documents
         self.alpha = 0.01
 
         #structure
@@ -121,6 +126,7 @@ class topic_model:
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
+        logvar = cap_logvar(logvar)
 
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
         z = mu + T.exp(0.5*logvar)*eps
@@ -133,7 +139,10 @@ class topic_model:
             H_d = relu(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
             y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd3'], H_d)  + self.params['bd3'])
 
-        y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)
+        if self.full_vocab==1:
+            y = y_notnorm/T.sum(y_notnorm + unused_sum, axis=0, keepdims=True)
+        elif self.full_vocab=0:
+            y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)
 
         KLD_factor = T.maximum(1, epoch/self.KLD_burnin + self.KLD_free) #KLD_free is start value
         KLD      =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
@@ -168,7 +177,7 @@ class topic_model:
 
         
         profmode = th.ProfileMode(optimizer='fast_run', linker=th.gof.OpWiseCLinker())
-        self.update = th.function([x, rest, epoch], [lowerbound, recon_err, KLD, KLD_train, logvar], updates=updates, on_unused_input='ignore')#, mode=profmode)
+        self.update = th.function([x, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train, logvar], updates=updates, on_unused_input='ignore')#, mode=profmode)
         self.lowerbound  = th.function([x, rest, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
 
     def encode(self, x, rest=None):
