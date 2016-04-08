@@ -8,7 +8,6 @@ import ConfigParser
 import matplotlib.pyplot as plt
 from random import shuffle
 from scipy.linalg import orth
-from vae_20l import topic_model_20layer
 
 def parse_config(fname):
     config = ConfigParser.ConfigParser()
