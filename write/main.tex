@@ -1,0 +1,25 @@
+\documentclass{report}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+%\usepackage{dsfont} %install texlive-fonts-extra 
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+
+\author{Otto Fabius}
+\title{SGVB Topic Modelling}
+\begin{document}
+
+\maketitle
+\tableofcontents
+\input{tex/intro}
+\input{tex/literature}
+\input{tex/model}
+\input{tex/experiments}
+
+\pagebreak 
+\nocite{*}
+\bibliographystyle{amsplain}
+\bibliography{ref}
+
+\end{document}

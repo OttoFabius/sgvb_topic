@@ -98,20 +98,26 @@ def perplexity_during_train(model, data, unused_sum, argdict, rest=None, selecte
 def perplexity_rest(data_train, indices_used, data_test):
 
     means = csc_matrix.mean(csc_matrix(data_train), axis=0)
+
     mult_params = np.array(means/np.sum(means))[0,:]
+
+    # mult_params = np.zeros_like(mult_params)+1./data_test.shape[1]
     perp=0
     data_test = csc_matrix(data_test)
+
 
     data_test[:,indices_used]=0
 
     for doc in xrange(data_test.shape[0]):
 
+
         perp_doc = np.sum(data_test[doc, :]*np.log(mult_params))
         perp+=perp_doc
 
+
     n_rest = csc_matrix.sum(data_test)
 
-    return perp/csc_matrix.sum(data_test), n_rest/n_total
+    return perp/csc_matrix.sum(data_test)
 
 
 def load_dataset(argdict):

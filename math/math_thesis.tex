@@ -21,7 +21,7 @@ We will consider the following graphical model:
     \begin{tikzpicture}[node distance = 1.5cm]
         \node[obs] (x) {$x^{(ik)}$}; 
 
-        \node[latent, above=of x] (z) {$z^{(ik)}$}; 
+        \node[latent, above=of x] (z) {$z^{(i)}$}; 
         
         \node[obs, above=of z] (d) {$d^{(i)}$}; 
 
@@ -37,7 +37,7 @@ We will consider the following graphical model:
         \edge [dashed,bend right] {d} {z}
         \edge [dashed,bend left] {x} {z}
 		
-		\plate {xz} {(x)(z)} {$k = 1...K$};
+		\plate {xz} {(x)} {$k = 1...K$};
         \plate {xzd} {(x)(z)(d)(xz)} {$i = 1...N$};
 
     \end{tikzpicture}
@@ -46,7 +46,36 @@ We will consider the following graphical model:
 \label{sgvb}
 \end{figure}
 
-In our application, $\mathbf{d}^{(i)}$ is a document (a vector of word frequencies), selected from the dataset containing N documents with uniform probability. The number of words in a document is K so $\mathbf{x}^{(ik)}$ is a word in $\mathbf{d}^{(i)}$, with $p(\mathbf{x}^{(ik)}|\mathbf{z}^{(ik)})$ a multinomial distribution. The (continuous) latent variables $\mathbf{z}^{(ik)}$ represent the topic, with $p(\mathbf{z}^{(ik)}|\mathbf{d}^{(i)})$ a multivariate normal distribution with diagonal covariance. We have a separate $\mathbf{z}^{(ik)}$ for each word $\mathbf{x}^{(ik)}$ in $\mathbf{d}^{(i)}$.\\ \\
+
+\begin{figure}[ht]
+  \begin{center}
+    \begin{tikzpicture}[node distance = 1.5cm]
+ 
+        
+        \node[obs] (d) {$d^{(i)}$};
+         
+        \node[latent, above=of d] (z) {$z^{(i)}$};
+
+        \node[const, right=of z] (th) {$\theta$} ;
+        \node[const, left=of z] (ph) {$\phi$};
+
+
+        \edge {z} {d};
+        \edge {th} {z};
+        \edge [dashed,bend left] {d} {z}
+        \edge [dashed] {ph} {z}
+
+		
+
+        \plate {zd} {(z)(d)} {$i = 1...N$};
+
+    \end{tikzpicture}
+  \end{center}
+\caption{Graphical Model}
+\label{sgvb_dense}
+\end{figure}
+
+In our application, $\mathbf{d}^{(i)}$ is a document (a vector of word frequencies), selected from the dataset containing N documents with uniform probability. The number of words in a document is K so $\mathbf{x}^{(ik)}$ is a word in $\mathbf{d}^{(i)}$, with $p(\mathbf{x}^{(ik)}|\mathbf{z}^{(i)})$ a multinomial distribution. The (continuous) latent variables $\mathbf{z}^{(i)}$ represent the topic of document $i$, with $p(\mathbf{z}^{(i)}|\mathbf{d}^{(i)})$ a multivariate normal distribution with diagonal covariance. Note that, in contrast to e.g. LDA, the topic distribution  $\mathbf{z}^{(i)}$ is shared for all words $\mathbf{x}^{(ik)}$ in the document. 
 We approximate the true posterior $p(z|x,d)$ by $q_\phi(z|x,d)$ parametrized by $\phi$, once again a multivariate normal distribution with diagonal covariance. All three the distributions $p_\theta(z|d)$, $p_\theta(x|z)$, and $q_\phi(z|x,d)$ are neural networks, of which the parameters $\theta$ and $\phi$ are to be learned jointly. The output of $p_\theta(z|d)$ and $q_\phi(z|x,d)$ are the mean and the diagonal entries of the covariance matrix.\\ 
 
 The network $q_\phi(z|x,d)$ has as input $x^{(ik)}$ and $d^{(i)}$. It makes sense to have at least one separate hidden layer for $d^{(i)}$ and $x^{(ik)}$ as both are very sparse and can be represented in lower-dimensional space. Furthermore, the hidden representation of $d^{(i)}$ may only have to be computed once for all $k$ words $x^{(ik)}$ in $d^{(i)}$.

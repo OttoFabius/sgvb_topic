@@ -2,7 +2,7 @@
 
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb}
-%\usepackage{dsfont} %install texlive-fonts-extra 
+%\usepackage[•]{•}l texlive-fonts-extra 
 \usepackage{tikz}
 \usetikzlibrary{bayesnet}
 
@@ -66,7 +66,7 @@ We optimize the lowerbound:
 which, using Bayes rule, we can express as:
 
 \begin{align}
-\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{d}^{(i)}) = -D_{KL}(q_\phi (\mathbf{z}| \mathbf{d}^{(i)})||q_\phi (\mathbf{z}| \mathbf{d}^{(i)})) + \mathbf{E}_{q_\phi(\mathbf{z}|\mathbf{d}^{(i)})}[\log p_\theta (\mathbf{d}^{(i)}|\mathbf{z})]
+\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{d}^{(i)}) = -D_{KL}(q_\phi (\mathbf{z}| \mathbf{d}^{(i)})||p_\theta (mathbf{z})) + \mathbf{E}_{q_\phi(\mathbf{z}|\mathbf{d}^{(i)})}[\log p_\theta (\mathbf{d}^{(i)}|\mathbf{z})]
 \end{align}
 
 
@@ -82,7 +82,7 @@ Similar to Kingma and Welling\footnote{kingma} we obtain:
 
 \subsection{Final objective function}
 
-We have a Poisson probability distribution on our outputs such that the reconstruction error becomes:
+We have a Multinomial probability distribution on our outputs such that the reconstruction error becomes:
 
 \begin{align}
 \log p_{\theta}(y^{(i)}|d^{(i)}) = \sum_{k=1}^K\{-y^{(ik)} + d^{(ik)} \log{y^{(ik)}}\}

@@ -1,0 +1,5 @@
+\subsection{Random Projections}
+
+Data $\mathbf{X}_{N\text{x}D}$ is a sparse matrix, to be projected onto $K$-dimensional space through $\mathbf{X}_{N\text{x}K} = \mathbf{R}_{D\text{x}K}\mathbf{X}_{N\text{x}D}$
+\\
+The $K$ columns of $\mathbf{R}_{D\text{x}K}$ are generally of unit length, and it helps if the are orthonormal, which for our application is of negligable computational cost to do. If we normalize each document s.t. the inputs represent probabilities, we can initialize the weights $R$ and $W_1$ with $N(0,1)$, s.t. each hidden unit will receive input distributed as $N(0,1)$. 

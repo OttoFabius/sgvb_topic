@@ -273,11 +273,8 @@ class topic_model:
 
         mult_params = y_notnorm/np.sum(y_notnorm, axis=0)*(1-unused_sum)
         n_words = np.sum(doc_unseen)
-        t3 = np.sum(doc_unseen*np.log(mult_params))
-        t4 = gammaln(n_words+1)
-        t6 = -np.sum(gammaln(doc_unseen+1))
-        log_perplexity_doc = t3# + t4 + t6
-
+        log_perplexity_doc = np.sum(doc_unseen*np.log(mult_params))
+        
         if log_perplexity_doc<-5000:
 
             print 'large log perplex doc!', log_perplexity_doc, np.min(log_perplexity_doc_vec), mult_params[np.argmin(log_perplexity_doc_vec)], doc_unseen[np.argmin(log_perplexity_doc_vec)]
