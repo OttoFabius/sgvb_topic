@@ -66,11 +66,11 @@ if __name__=="__main__":
                     recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
         epoch = 0
 
-        # print "estimating perplexity on test set with", argdict['samples'], "samples"
-        # perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
-        # perplexity_list = np.append(perplexity_list, perplexity)
-        # perp_sem_list = np.append(perp_sem_list, perp_sem)
-        # print "perplexity =", perplexity, 'with', perp_sem, 'sem'
+        print "estimating perplexity on test set with", argdict['samples'], "samples"
+        perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
+        perplexity_list = np.append(perplexity_list, perplexity)
+        perp_sem_list = np.append(perp_sem_list, perp_sem)
+        print "perplexity =", perplexity, 'with', perp_sem, 'sem'
         testlowerbound, recon_test = model.getLowerBound(x_test, unused_sum, epoch, rest=rest_test)
         print 'lb test', testlowerbound/(n_test-n_test%argdict['batch_size'])
 

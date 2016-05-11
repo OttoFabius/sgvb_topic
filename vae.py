@@ -23,8 +23,8 @@ def bn(activations, gamma, beta, eps):
 def relu(x, alpha=0):
     return T.switch(x > 0, x, alpha * x) #leaky relu in 1-layer encoder for stability
 
-def cap_logvar(logvar):
-    return T.switch(logvar<4, logvar, 4)
+def cap_logvar(logvar,cap):
+    return T.switch(logvar<cap, logvar, cap)
 
 class topic_model:
     def __init__(self, argdict):
@@ -32,11 +32,12 @@ class topic_model:
 
         self.learning_rate = th.shared(argdict['learning_rate'])
         self.batch_size = argdict['batch_size']
-        self.e_bn = 0.4
+        self.e_bn = 0.6
         self.rp = argdict['rp']
         self.full_vocab = argdict['full_vocab']
 
         self.e_doc = 1e-2 #no empty documents
+        self.logvar_cap = 4.
         self.alpha = 0.01
         self.lam = 0
         self.N = argdict['trainset_size']
@@ -173,7 +174,7 @@ class topic_model:
 
         mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
         logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
-        logvar = cap_logvar(logvar)
+        logvar = cap_logvar(logvar, self.logvar_cap)
 
         eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
         z = mu + T.exp(0.5*logvar)*eps
@@ -245,7 +246,6 @@ class topic_model:
         We_var = self.params["We_var"].get_value()
         be_var = self.params["be_var"].get_value()
 
-
         H = np.dot(We1, x) + be1 
 
         if type(rest)==np.ndarray:
@@ -269,6 +269,7 @@ class topic_model:
 
         mu  = np.dot(We_mu, H)  + be_mu
         logvar = np.dot(We_var, H) + be_var
+        logvar[logvar>self.logvar_cap] = self.logvar_cap
 
         return mu, logvar
 
