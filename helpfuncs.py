@@ -18,6 +18,7 @@ def parse_config(fname):
     argdict['dimZ'] = config.getint('parameters','latent_variables')
     argdict['HUe1'] = config.getint('parameters','HUe1')
     argdict['HUe2'] = config.getint('parameters','HUe2')
+    argdict['HUe3'] = config.getint('parameters','HUe3')
     argdict['HUd1'] = config.getint('parameters','HUd1')
     argdict['HUd2'] = config.getint('parameters','HUd2')
     argdict['learning_rate'] = config.getfloat('parameters','learning_rate')

@@ -1,4 +1,5 @@
 import numpy as np
+from random import seed
 from helpfuncs import *
 from analysis import plot_stats, plot_used_dims
 import time
@@ -13,7 +14,7 @@ from vae import topic_model
 
 
 if __name__=="__main__":
-
+    seed(5)
     # THEANO_FLAGS=optimizer=None
 
     # import warnings
@@ -46,7 +47,7 @@ if __name__=="__main__":
         rest_test = None
 
     unused_sum = get_unused_sum(argdict)
-
+    
     argdict['voc_size'] = x_train.shape[1]
     print 'voc size:', argdict['voc_size'], "n_total:", n_total, "n_train:", n_train, "n_test:", n_test
 
@@ -65,11 +66,13 @@ if __name__=="__main__":
                     recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
         epoch = 0
 
-        print "estimating perplexity on test set with", argdict['samples'], "samples"
-        perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
-        perplexity_list = np.append(perplexity_list, perplexity)
-        perp_sem_list = np.append(perp_sem_list, perp_sem)
-        print "perplexity =", perplexity, 'with', perp_sem, 'sem'
+        # print "estimating perplexity on test set with", argdict['samples'], "samples"
+        # perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
+        # perplexity_list = np.append(perplexity_list, perplexity)
+        # perp_sem_list = np.append(perp_sem_list, perp_sem)
+        # print "perplexity =", perplexity, 'with', perp_sem, 'sem'
+        testlowerbound, recon_test = model.getLowerBound(x_test, unused_sum, epoch, rest=rest_test)
+        print 'lb test', testlowerbound/(n_test-n_test%argdict['batch_size'])
 
 
 
