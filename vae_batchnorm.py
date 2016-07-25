@@ -12,6 +12,13 @@ from scipy.sparse import csr_matrix, csc_matrix
 from scipy.special import gammaln
 from theano import ProfileMode
 
+def bn(activations, gamma, beta, eps):
+    batch_mean = T.mean(activations, axis=0)
+
+    batch_var = T.mean((activations - batch_mean))**2
+    activations_norm = (activations - batch_mean)/T.sqrt(batch_var+eps)
+    activations_rescale = gamma * activations_norm + beta
+    return activations_rescale
 
 def relu(x, alpha=0):
     return T.switch(x > 0, x, alpha * x) #leaky relu in 1-layer encoder for stability
@@ -25,6 +32,7 @@ class topic_model:
 
         self.learning_rate = th.shared(argdict['learning_rate'])
         self.batch_size = argdict['batch_size']
+        self.e_bn = 0.6
         self.rp = argdict['rp']
         self.full_vocab = argdict['full_vocab']
 
@@ -49,9 +57,6 @@ class topic_model:
         self.m = OrderedDict()
         self.v = OrderedDict()
 
-        self.dirichlet = argdict['dirichlet']
-        self.alpha_prior = 0.3
-
         self.KLD_free = argdict['KLD_free']
         self.KLD_burnin = argdict['KLD_burnin']
 
@@ -75,13 +80,14 @@ class topic_model:
 
                 H_e_last = argdict['HUe3']
 
-                
+
+
+
         We_mu = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ,H_e_last)).astype(th.config.floatX), name = 'We_mu')
         be_mu = th.shared(np.zeros((self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
         We_var = th.shared(np.random.normal(0,1./np.sqrt(float(H_e_last)),(self.dimZ, H_e_last)).astype(th.config.floatX), name = 'We_var')
         be_var = th.shared(np.zeros((self.dimZ,1)).astype(th.config.floatX), name = 'be_var', broadcastable=(False,True))
-
 
         
         if self.HUd1==0:
@@ -103,32 +109,33 @@ class topic_model:
 
 
 
-        self.params = dict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu), ('Wd1', Wd1), ('bd1', bd1)])
+        self.params = dict([('We1', We1), ('be1', be1), ('We_mu', We_mu), ('be_mu', be_mu),  \
+            ('We_var', We_var), ('be_var', be_var), ('Wd1', Wd1), ('bd1', bd1)])
 
+        for key, value in self.params.items():
+            if 'b' in key and not 'mu' in key and not 'var' in key:
+                gamma = th.shared(np.ones((value.get_value().shape)).astype(th.config.floatX), name = 'gamma_'+key, broadcastable=(False,True))
+                self.params.update(dict([('gamma_'+key, gamma)]))
+                beta = th.shared(np.zeros((value.get_value().shape)).astype(th.config.floatX), name = 'beta_'+key, broadcastable=(False,True))
+                self.params.update(dict([('beta_'+key, beta)]))
 
         if self.HUe2!=0:
-            self.params.update(dict([('We2', We2), ('be2', be2)]))
+            gamma = th.shared(np.ones(be2.get_value().shape).astype(th.config.floatX), name = 'gamma_'+key, broadcastable=(False,True))
+            beta = th.shared(np.zeros((be2.get_value().shape)).astype(th.config.floatX), name = 'beta_'+key, broadcastable=(False,True))
+            self.params.update(dict([('We2', We2), ('be2', be2), ('gamma_be2', gamma), ('beta_be2', beta)]))
         if self.HUe3!=0:
             self.params.update(dict([('We3', We3), ('be3', be3)]))
         if self.HUd1!=0:
-            self.params.update(dict([('Wd2', Wd2), ('bd2', bd2)]))
+            gamma = th.shared(np.ones(bd2.get_value().shape).astype(th.config.floatX), name = 'gamma_'+key, broadcastable=(False,True))
+            beta = th.shared(np.zeros((bd2.get_value().shape)).astype(th.config.floatX), name = 'beta_'+key, broadcastable=(False,True))
+            self.params.update(dict([('Wd2', Wd2), ('bd2', bd2), ('gamma_bd2', gamma), ('beta_bd2', beta)]))
         if self.HUd2!=0:
             self.params.update(dict([('Wd3', Wd3), ('bd3', bd3)]))
 
-        if self.dirichlet==0:
-            self.params.update(dict([('We_var', We_var), ('be_var', be_var)]))
-        if self.dirichlet==1:
-            self.params_qnn = dict()
-            names_qnn = pickle.load(open("qnn_names.pkl", "rb"))
-            params_qnn = pickle.load(open("qnn_params.pkl", "rb"))
 
-            for name, param in zip(names_qnn,params_qnn): 
-                self.params_qnn[name] = param
-
-
-        for key, value in self.params.items():
 
         # Init m and v for adam, and TODO: init gamma and beta for batch normalization for each layer
+        for key,value in self.params.items():
             if 'b' in key:
                 self.m[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='m_' + key, broadcastable=(False,True))
                 self.v[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='v_' + key, broadcastable=(False,True))
@@ -152,77 +159,51 @@ class topic_model:
         if self.rp==1:
             H_lin += rest
 
+        H_lin = bn(H_lin, self.params['gamma_be1'], self.params['beta_be1'], self.e_bn)
+
         H = relu(H_lin, alpha=self.alpha)
 
         if self.HUe2!=0:
             H2_lin = T.dot(self.params['We2'], H) + self.params['be2']
+            H2_lin = bn(H2_lin, self.params['gamma_be2'], self.params['beta_be2'], self.e_bn)
             H = relu(H2_lin)
         if self.HUe3!=0:
             H3_lin = T.dot(self.params['We3'], H) + self.params['be3']
-            H = relu(H3_lin)    
+            H3_lin = bn(H3_lin, self.params['gamma_be3'], self.params['beta_be3'], self.e_bn)
+            H = relu(H3_lin)            
 
+        mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
+        logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
+        logvar = cap_logvar(logvar, self.logvar_cap)
 
-
-
-        if self.dirichlet==0:
-            mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
-            logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
-            logvar = cap_logvar(logvar, self.logvar_cap)
-
-            eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
-            z = mu + T.exp(0.5*logvar)*eps
-
-        if self.dirichlet==1:
-            alpha = T.nnet.relu(T.dot(self.params['We_mu'], H)  + self.params['be_mu']) #encoding of dirichlet distributed latent variables
-            eps = srng.uniform(size=(1, self.dimZ* self.batch_size), dtype=theano.config.floatX) #one uniformly distributed val for each Gamma distribution
-            
-            alpha_vec = T.reshape(alpha, (1,self.batch_size*self.dimZ), ndim=2) #not sure if this reshape works correctly yet!
-
-            qnn_input = T.concatenate([alpha_vec, eps], axis=0)
-
-
-            H_qnn = T.tanh(T.dot(self.params_qnn["W1"], qnn_input) + self.params_qnn["b1"])
-            gammavars = T.nnet.relu(T.dot(self.params_qnn["W2"], H_qnn) + self.params_qnn["b2"]) #these are the gamma variables
-
-            z = gammavars/T.sum(gammavars,axis=0) #now we have the dirichlet distributed latent variables
-            z = T.reshape(z, (self.dimZ, self.batch_size))
+        eps = srng.normal((self.dimZ, self.batch_size), avg=0.0, std=1.0, dtype=theano.config.floatX)
+        z = mu + T.exp(0.5*logvar)*eps
 
         if self.HUd1==0:
             y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd1'], z)  + self.params['bd1'])
         elif self.HUd1!=0:  
             H_d_lin = T.dot(self.params['Wd1'], z)  + self.params['bd1']
-            H_d = relu(H_d_lin)
+            H_d = relu(bn(H_d_lin, self.params['gamma_bd1'], self.params['beta_bd1'], self.e_bn))
             if self.HUd2==0:
                 y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
             elif self.HUd2!=0:
                 H_d_lin = T.dot(self.params['Wd2'], H_d)  + self.params['bd2']
-                H_d = relu(H_d_lin)
+                H_d = relu(bn(H_d_lin, self.params['gamma_bd2'], self.params['beta_bd2'], self.e_bn))
                 y_notnorm = T.nnet.sigmoid(T.dot(self.params['Wd3'], H_d)  + self.params['bd3'])
 
         y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)*(1-unused_sum)
 
         KLD_factor = T.maximum(0, T.minimum(1, (epoch-self.KLD_free)/self.KLD_burnin))
-
-
-
-
-        if self.dirichlet==0:
-            KLD      =  -0.01*T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
-            KLD_train = KLD*KLD_factor
-        if self.dirichlet==1:
-            print 'dirichlet not implemented yet!'
-            KLD      =  T.mean(z)
-            KLD_train = KLD*KLD_factor
-
-
-
-
+        KLD      =  -0.01*T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
+        KLD_train = KLD*KLD_factor
 
         recon_err =  T.sum(theano.sparse.basic.sp_sum(x*T.log(y+1e-10), axis=0)/theano.sparse.basic.sp_sum(x, axis=0)+self.e_doc)
         # recon_err =  T.sum(theano.sparse.sp_sum(theano.sparse.basic.mul(x, T.log(y)), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
+
         lowerbound_train = recon_err - KLD_train
         lowerbound = recon_err - KLD
+
 
         gradients = T.grad(lowerbound_train, self.params.values())
 
@@ -249,7 +230,7 @@ class topic_model:
 
         
         profmode = th.ProfileMode(optimizer='fast_run', linker=th.gof.OpWiseCLinker())
-        self.update = th.function([x, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')#, mode=profmode)
+        self.update = th.function([x, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train, logvar], updates=updates, on_unused_input='ignore')#, mode=profmode)
         self.lowerbound  = th.function([x, rest, unused_sum, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
 
     def encode(self, x, rest=None):
@@ -381,7 +362,7 @@ class topic_model:
             X_batch = X[batches[i]:batches[i+1]]
             if type(rest)==np.ndarray:
                 rest_batch = rest[batches[i]:batches[i+1]].T
-            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch = self.update(X_batch.T, rest_batch, unused_sum, epoch)
+            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch, logvar = self.update(X_batch.T, rest_batch, unused_sum, epoch)
 
             if KLD_batch>10000:
                 print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch

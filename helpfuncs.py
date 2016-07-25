@@ -34,6 +34,7 @@ def parse_config(fname):
     argdict['max_epochs'] = config.getint('parameters', 'max_epochs')
     argdict['rp'] = config.getint('parameters','rp')
     argdict['full_vocab'] = config.getint('parameters', 'use_full_vocab')
+    argdict['dirichlet'] = config.getint('parameters', 'dirichlet')
 
     if argdict['dataset_num'] == 0:
         argdict['dataset']='kos'

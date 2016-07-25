@@ -66,13 +66,13 @@ if __name__=="__main__":
                     recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
         epoch = 0
 
-        print "estimating perplexity on test set with", argdict['samples'], "samples"
-        perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
-        perplexity_list = np.append(perplexity_list, perplexity)
-        perp_sem_list = np.append(perp_sem_list, perp_sem)
-        print "perplexity =", perplexity, 'with', perp_sem, 'sem'
-        testlowerbound, recon_test = model.getLowerBound(x_test, unused_sum, epoch, rest=rest_test)
-        print 'lb test', testlowerbound/(n_test-n_test%argdict['batch_size'])
+        # print "estimating perplexity on test set with", argdict['samples'], "samples"
+        # perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
+        # perplexity_list = np.append(perplexity_list, perplexity)
+        # perp_sem_list = np.append(perp_sem_list, perp_sem)
+        # print "perplexity =", perplexity, 'with', perp_sem, 'sem'
+        # testlowerbound, recon_test = model.getLowerBound(x_test, unused_sum, epoch, rest=rest_test)
+        # print 'lb test', testlowerbound/(n_test-n_test%argdict['batch_size'])
 
 
 
@@ -82,17 +82,17 @@ if __name__=="__main__":
 
         epoch += 1      
         if epoch % argdict['save_every'] == 0:    
-
+            print "skipping saving and perplex"
             # print "saving stats, params at epoch", epoch
             # save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
             #                                                         recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
             # save_parameters(model, 'results/vae_own/'+sys.argv[1])
 
-            print "estimating perplexity on test set with", argdict['samples'], "samples"
-            perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
-            perplexity_list = np.append(perplexity_list, perplexity)
-            perp_sem_list = np.append(perp_sem_list, perp_sem)
-            print "perplexity =", perplexity, 'with', perp_sem, 'sem'
+            # print "estimating perplexity on test set with", argdict['samples'], "samples"
+            # perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
+            # perplexity_list = np.append(perplexity_list, perplexity)
+            # perp_sem_list = np.append(perp_sem_list, perp_sem)
+            # print "perplexity =", perplexity, 'with', perp_sem, 'sem'
 
         start = time.time()  
         
@@ -116,10 +116,10 @@ if __name__=="__main__":
         recon_test_list     = np.append(recon_test_list     , recon_test    /(n_test-n_test%argdict['batch_size']))
         testlowerbound_list = np.append(testlowerbound_list , testlowerbound/(n_test-n_test%argdict['batch_size']))
  
-    print "done, saving stats, params"
-    save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
-                                                                    recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
-    save_parameters(model, 'results/vae_own/'+sys.argv[1])
+    print "done, skipping saving stats, params"
+    # save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
+    #                                                                 recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
+    # save_parameters(model, 'results/vae_own/'+sys.argv[1])
 
 plot_stats(lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, perplexity_list, perp_sem_list, sys.argv[1], argdict['save_every'])
 plot_used_dims(model, x_test, sys.argv[1]) 
