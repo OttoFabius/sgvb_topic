@@ -1,0 +1,42 @@
+\documentclass{article}
+
+
+\usepackage{amsmath,amssymb}
+%\usepackage{dsfont} %install texlive-fonts-extra 
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+
+\author{Otto Fabius}
+\title{VAE results}
+\begin{document}
+	
+	\maketitle
+	\section{Experiments}
+	
+	We ran experiments on the KOS and the NY Times datasets, freely available at UCI\footnote{https://archive.ics.uci.edu/ml/datasets/Bag+of+Words}. Both datasets contain only words that occur more than ten times in the whole dataset. The KOS dataset contains 3430 documents and has a vocabulary size of 6906. The dataset was split into 3300 training documents and 130 test documents. The NY times dataset consists of 300,000 documents and has a vocabulary size of 102,660 words. For the NY Times dataset, we only use words that occur over 3,000 times in the dataset. This makes training time and model evaluation a lot faster, as both scale approximately linearly with input dimensionality. Leaving out infrequent words only has a minor effect on the perplexity of bag-of-word topic model perplexity, mainly due to Zipf's law (Cite Kobayashi). For this dataset, a test set of 1,000 documents was used.
+	\\
+	We ran experiments with the unnormalized data $\mathbf{X}$ as input, as well as normalizing $X$ first. Normalizing the input makes sense from a probabilistic point of view as the data point entries now represent relative word frequencies. However, any information contained in the document length is now lost. 
+	\\
+	For our experiments on KOS, we used one hidden layer of 400 units in the encoder and one hidden layer of 100 units in the decoder.  Using a more powerful decoder resulted in over-fitting on the train set. 
+	\\
+	Held-out perplexity was calculated for the test set as in e.g. (cite deep exponential families, welling, more?) by showing only half the words, randomly sampled, in each document to the encoder to obtain $\mathbf{z}$, identical to during training. The average per-word perplexity of the unseen words is then calculated under the word-probabilities predicted by the decoder.  Figure \ref{results_KOS} compares perplexities for KOS to LDA, as well as the achieved lower bound on the test set.
+	\\
+
+	
+	\begin{tabular}{l|l|l|l}
+		& VAE, unnormalized & VAE, normalized & LDA  \\
+		\hline
+		lower bound & & & - \\
+		\hline
+		perplexity & & & \\
+		\label{results_KOS}
+	\end{tabular}
+	
+
+	
+	
+\end{document}
+
+
+
+	

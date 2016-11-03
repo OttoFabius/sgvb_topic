@@ -1,0 +1,43 @@
+\documentclass{article}
+
+
+\usepackage{amsmath,amssymb}
+%\usepackage{dsfont} %install texlive-fonts-extra 
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+
+\author{Otto Fabius}
+\title{Graph Convolutional encoder for VAE topic                                      modelling}
+\begin{document}
+
+\maketitle
+
+\section{GCE}
+
+One layer of a Graph Convolutional Network (Kipf and Welling, personal communication) is defined as: 
+
+\begin{align}
+H = \text{ReLu}(\bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}XW)
+\end{align}
+
+Here, $\bar{A}$ is the (symmetric) adjacency matrix $A$ with added self connections $I$:$\bar{A} = A+I$. In our application, this would be of dimension $(N_d + V) \text{ x } (N_d + V)$, with both the upper left corner and the bottom right corner an identity matrix. $X$ represents the features of each edge in the graph (i.e. each document/word pair), and would by default be an identity matrix in our application. \\
+This approach can be viewed as a row-column normalization of our data, s.t. $G_{ij} = \frac{\bar{a}_{ij}}{\sqrt{D_{ii}D_{jj}}}$ where $G = \bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}$. This might be problematic for a VAE approach, as  data points (i.e. entries in $\bar{G}$) are no longer i.i.d. Furthermore, the vector $H$ would be of size $N_{d_{batch}} V_{batch}$ which leads to problems: the dimensionality of H would be large, and would even vary with each batch. (\textit{need to elaborate on this!)} \\
+Therefore, we choose to augment $X$ to collapse $H$ over the words. For this, we choose 
+\begin{align}
+X = 
+\begin{matrix} 
+I && 0 \\
+0 && B
+\end{matrix}
+\end{align}
+Where $I$ is $N_{docs}$ x $N_{docs}$ and $B$ is a column vector of length $V$. This way, we essentially normalize each document separately and have an extra input dimension which represents, or contains information on, the length of the document. \\
+This approach means we will need to normalize our test and/or validation data in a similar fashion. Since renormalizing our data every time we use the model e
+
+\section{Likelihood}
+Also in this approach, we use a softmax in the output layer of the decoder. This works well with normalized documents, since these already represent word probabilities. The same holds for the perplexity calculation for model evaluation.
+
+\section{Implementation}
+
+We need to perform batch optimization to make this approach scalable. Luckily, we can precompute $R =  \bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}$, s.t. during optimization we only need to compute $H = \text{ReLu}(RW)$ for the first layer of each batch. We 
+
+\end{document}

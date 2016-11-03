@@ -1,4 +1,4 @@
-from helpfuncs import load_parameters, save_parameters, parse_config, load_dataset, perplexity_during_train
+from helpfuncs import load_parameters, save_parameters, parse_config, load_dataset
 import gzip
 import cPickle as pickle
 from scipy.sparse import csr_matrix, csc_matrix

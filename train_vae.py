@@ -37,8 +37,16 @@ if __name__=="__main__":
     n_test = argdict['testset_size']
     n_train = argdict['trainset_size']
 
+
+    # always use same test set
     x_train = x_csc[:n_train,:]
-    x_test = x_csc[n_total-1-n_test:n_total,:] 
+    x_test = x_csc[n_total-1-n_test:n_total,:]
+
+    # normalize per document NB should optimize this method for use on large datasets
+    if argdict['normalize_input']==1:
+        x_test_norm = csc_matrix(x_test/csc_matrix.sum(x_test, 1))
+        x_train_norm = csc_matrix(x_train/csc_matrix.sum(x_train, 1))
+
     if argdict['rp']==1:
         rest_train = rest[:n_train,:]
         rest_test = rest[n_total-1-n_test:n_total,:]
@@ -47,9 +55,11 @@ if __name__=="__main__":
         rest_test = None
 
     unused_sum = get_unused_sum(argdict)
-    
+
+
     argdict['voc_size'] = x_train.shape[1]
-    print 'voc size:', argdict['voc_size'], "n_total:", n_total, "n_train:", n_train, "n_test:", n_test
+
+    print argdict
 
     used_features = load_used_features(argdict)
 
@@ -66,15 +76,15 @@ if __name__=="__main__":
                     recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
         epoch = 0
 
-        # print "estimating perplexity on test set with", argdict['samples'], "samples"
-        # perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
-        # perplexity_list = np.append(perplexity_list, perplexity)
-        # perp_sem_list = np.append(perp_sem_list, perp_sem)
-        # print "perplexity =", perplexity, 'with', perp_sem, 'sem'
-        # testlowerbound, recon_test = model.getLowerBound(x_test, unused_sum, epoch, rest=rest_test)
-        # print 'lb test', testlowerbound/(n_test-n_test%argdict['batch_size'])
+        testlowerbound, recon_test, KLD_test = model.getLowerBound(x_test_norm, x_test, unused_sum, epoch, rest=rest_test)
+        print 'lb test', testlowerbound/(n_test-n_test%argdict['batch_size'])
 
-
+        perplexity_est = list()
+        for i in xrange(argdict['samples']):
+            perplexity_est.append(model.calc_perplexity(argdict, x_test, unused_sum))
+        perplexity_list.append(np.mean(perplexity_est))
+        perp_sem_list.append(np.std(perplexity_est)/np.sqrt(argdict['samples']))
+        print 'perplexity is', perplexity_list[-1], 'with sem', perp_sem_list[-1]
 
     print 'iterating' 
     idx = np.arange(n_train)
@@ -82,32 +92,34 @@ if __name__=="__main__":
 
         epoch += 1      
         if epoch % argdict['save_every'] == 0:    
-            print "skipping saving and perplex"
-            # print "saving stats, params at epoch", epoch
-            # save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
-            #                                                         recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
-            # save_parameters(model, 'results/vae_own/'+sys.argv[1])
-
-            # print "estimating perplexity on test set with", argdict['samples'], "samples"
-            # perplexity, perp_sem = perplexity_during_train(model, x_test, unused_sum, argdict, rest=rest_test)
-            # perplexity_list = np.append(perplexity_list, perplexity)
-            # perp_sem_list = np.append(perp_sem_list, perp_sem)
-            # print "perplexity =", perplexity, 'with', perp_sem, 'sem'
+            perplexity_est = list()
+            for i in xrange(argdict['samples']):
+                perplexity_est.append(model.calc_perplexity(argdict, x_test, unused_sum))
+            perplexity_list.append(np.mean(perplexity_est))
+            perp_sem_list.append(np.std(perplexity_est)/np.sqrt(argdict['samples']))
+            print 'perplexity is', perplexity_list[-1], 'with sem', perp_sem_list[-1]
 
         start = time.time()  
         
+
         np.random.shuffle(idx)
         x_train = x_train[idx,:]
+
+
         if argdict['rp']==1:
             rest_train = rest_train[idx,:]
 
-        lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train, unused_sum, epoch, rest=rest_train)
-        testlowerbound, recon_test = model.getLowerBound(x_test, unused_sum, epoch, rest=rest_test)
+        x_train_norm = x_train_norm[idx,:]
+
+        lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train_norm, x_train, unused_sum, epoch, rest=rest_train)
+        testlowerbound, recon_test, KLD_test = model.getLowerBound(x_test_norm, x_test, unused_sum, epoch, rest=rest_test) 
 
         if epoch == 1:
             print time.time() - start, 'seconds for first epoch'
-        print 'epoch ', epoch, 'lb: ', lowerbound/n_train, 'lb test', testlowerbound/(n_test-n_test%argdict['batch_size']), 'recon test', recon_test/(n_test-n_test%argdict['batch_size'])
-
+        print 'epoch ', epoch, 'lb: ', lowerbound/n_train, 'lb test', \
+                    testlowerbound/(n_test-n_test%argdict['batch_size']), \
+                    'recon test', recon_test/(n_test-n_test%argdict['batch_size']), \
+                    'KLD test', KLD_test/(n_test-n_test%argdict['batch_size'])
         lowerbound_list     = np.append(lowerbound_list     , lowerbound    /n_train)
         KLD_list            = np.append(KLD_list            , KLD           /n_train)
         KLD_used_list       = np.append(KLD_used_list       , KLD_used      /n_train)

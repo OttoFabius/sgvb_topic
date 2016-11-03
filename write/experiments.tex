@@ -1,4 +1,18 @@
-\chapter{Experiments}
+\documentclass{article}
+
+
+\usepackage{amsmath,amssymb}
+%\usepackage{dsfont} %install texlive-fonts-extra 
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+
+\author{Otto Fabius}
+\title{Experiments}
+\begin{document}
+
+\maketitle
+
+
 
 The datasets used for our experiments are the KOS blog post entries dataset and the NY Times dataset, both freely available ...footnote uci... bag of words datasets. Preprocessing includes only stopword removal and removal of words that occur ten times or less. After this, the KOS dataset contains 3430 documents and has a vocabulary of 6906 words, and the NY times dataset contains 300,000 documents and has a vocabulary size of 102660. \\
 Topic models are evaluated by estimating the heldout perplexity per word on the test set. Perplexity is ..... More specifically, in ur experiments we use half of the words in each document to perform inference, i.e. calculate $p....$, and calculate the perplexity of the other half of the document. This is similar to ..examples..
@@ -17,3 +31,4 @@ Experiment(s) where the decoder predicts the full vocabulary, limiting the numbe
 \section{Investigation of the Topic Space}
 Perhaps investigate the encoding of two (or more, could even do a whole document) words separately, as well as the combination. How much of an interaction is actually learned? Can we extract which words have a small influence on the encoding? Or which words hardly interact with other words?
 
+\end{document}

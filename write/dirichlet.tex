@@ -14,10 +14,10 @@
 
 \section{KL Divergence}
 
-We would like to use Dirichlet latent variables, with a Dirichlet prior. This means we need (1) the KLD between the prior and the approximate posterior: $KL(q(\mathbf{z}|\mathbf{x}^{(n)}||p(\mathbf{z})$ and a method to take samples from $q(\mathbf{z}$. The KLD can be calculated analytically.
+We would like to use Dirichlet latent variables, with a Dirichlet prior. This means we need (1) the KLD between the prior and the approximate posterior: $KL(q(\mathbf{z}|\mathbf{x}^{(n)}||p(\mathbf{z}))$ and a method to take samples from $q(\mathbf{z}$. The KLD can be calculated analytically.
 With $p(\mathbf{z}) = Dir(\alpha)$ and $q(\mathbf{z}|\mathbf{x}^{(n)} = Dir(\beta)$:
 \begin{align}
-KL(q(\mathbf{z}|\mathbf{x}^{(n)}) = \log \Gamma(\beta_0) - \sum_{k=1}^K\log\Gamma(\beta_k)-\log\Gamma(\alpha_0)+ \\
+KL(q(\mathbf{z}|\mathbf{x}^{(n)}||p(\mathbf{z})) = \log \Gamma(\beta_0) - \sum_{k=1}^K\log\Gamma(\beta_k)-\log\Gamma(\alpha_0)+ \\
 \sum_{k=1}^K\log\Gamma(\alpha_k)+ \sum_{k=1}^K(\beta_k - \alpha_k)(\psi(\beta_k)-\psi(\beta_0))
 \end{align}
 
@@ -27,12 +27,14 @@ Where
 \alpha_0 = \sum_{k=1}^{K}\alpha_k \text{ and } \beta_0 = \sum_{k=1}^{K}\beta_k
 \end{align}
 
+
 Regarding the choice of $\alpha$, a naive choice seems to be a symmetric prior with $\alpha < 1$, similar to LDA (e.g. $0.3$). With this approach, we can even optimize $\alpha$ (whether we want to have a symmetric prior or not), although optimizing an asymmetric prior might be prone to overfitting.
 
 \section{Reparametrization}
 
 In order to obtain gradients of our latent variables, we write our Dirichlet distribution $z \sim Dir(\alpha)$ as a weighted sum of Gamma variates: $z_k = \frac{y_k}{\sum_{k=1}^{K}}$ with $y_k \sim \text{Gamma}(\alpha_k,1)$. \\
-The sum of $n$  exponential $(\beta)$ random variables is a $Gamma(n, \beta)$ random variable. Write each Gamma dist variable as sum of exp dist variables with $\lambda = 1$. So $y_k \sim Gamma(\alpha_k,1)$ can be done as $y_k = \sum_{n=1}^{N}v_n$ with $v_n \sim e^{-x}$. Can we find a continuous function (or approximation) $f(n,x)$ s.t. we can sample $y_k$ from $f(n,x)$ directly? NB we must still be able to apply the reparametrization trick to it, so it must be location-scale family or have a tractable inverse CDF (quantile)! Alternative idea: train a (small, differentiable) neural network to approximate the quantile function of the Gamma distribution! (input: different values of $\alpha_k$  and $p$, i.e. values of $\epsilon$. Obtain these simply by calculating the values with CDF function).
+Now we train a (small, differentiable) neural network to approximate the quantile function of the Gamma distribution! So the neural net is the quantile function $f(\alpha_k, \epsilon) = y_k$. (input: different values of $\alpha_k$  and $p$, i.e. values of $\epsilon$. We can obtain training data simply by calculating the values of $\epsilon$ for combinations of $y_k$ and $\alpha_k$, with $\beta_k = 1$ with the Gamma CDF). \\
+Alternative idea: he sum of $n$  exponential $(\beta)$ random variables is a $Gamma(n, \beta)$ random variable. Write each Gamma dist variable as sum of exp dist variables with $\lambda = 1$. So $y_k \sim Gamma(\alpha_k,1)$ can be done as $y_k = \sum_{n=1}^{N}v_n$ with $v_n \sim e^{-x}$. Can we find a continuous function (or approximation) $f(n,x)$ s.t. we can sample $y_k$ from $f(n,x)$ directly? NB we must still be able to apply the reparametrization trick to it, so it must be location-scale family or have a tractable inverse CDF (quantile)! 
 
 
 \end{document}

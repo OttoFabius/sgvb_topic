@@ -8,6 +8,7 @@ import ConfigParser
 import matplotlib.pyplot as plt
 from random import shuffle
 from scipy.linalg import orth
+import itertools
 
 def parse_config(fname):
     config = ConfigParser.ConfigParser()
@@ -35,6 +36,9 @@ def parse_config(fname):
     argdict['rp'] = config.getint('parameters','rp')
     argdict['full_vocab'] = config.getint('parameters', 'use_full_vocab')
     argdict['dirichlet'] = config.getint('parameters', 'dirichlet')
+    argdict['normalize_input'] = config.getint('parameters', 'normalize_input')
+    argdict['kld_weight'] = config.getfloat('parameters', 'kld_weight')
+    argdict['ignore_logvar'] = config.getint('parameters', 'ignore_logvar')
 
     if argdict['dataset_num'] == 0:
         argdict['dataset']='kos'
@@ -69,33 +73,6 @@ def save_stats(fname, lowerbound, testlowerbound, KLD, KLD_used, recon_train, re
     np.save(fname + '/perplexity.npy', perplexity)
     np.save(fname + '/perp_sem.npy', perp_sem)
 
-def perplexity_during_train(model, data, unused_sum, argdict, rest=None, selected_features=None):
-
-    samples = argdict['samples']
-
-
-    docnrs = np.arange(1, argdict['testset_size'], 1)
-
-    log_perplexity_list = []
-    for i in xrange(samples):
-        log_perplexity = 0
-        n_words=0
-        for docnr in docnrs:
-            doc = data[docnr,:]
-            if type(rest)==np.ndarray:
-                rest_doc = rest[docnr, :, np.newaxis]
-            else:
-                rest_doc=None
-            log_perplexity_doc, n_words_doc = model.calculate_perplexity(doc.T, unused_sum, rest=rest_doc, selected_features=selected_features)
-            log_perplexity += log_perplexity_doc
-            n_words += n_words_doc
-
-    	log_perplexity_list.append(-log_perplexity/n_words)
-    perplexity = np.exp(np.array(log_perplexity_list))
-    perp_mean = np.mean(perplexity)
-    perp_sem = np.std(perplexity)/np.sqrt(samples)
-
-    return perp_mean, perp_sem
 
 def perplexity_rest(data_train, indices_used, data_test):
 
@@ -111,8 +88,6 @@ def perplexity_rest(data_train, indices_used, data_test):
     data_test[:,indices_used]=0
 
     for doc in xrange(data_test.shape[0]):
-
-
         perp_doc = np.sum(data_test[doc, :]*np.log(mult_params))
         perp+=perp_doc
 
@@ -121,6 +96,27 @@ def perplexity_rest(data_train, indices_used, data_test):
 
     return perp/csc_matrix.sum(data_test)
 
+def select_half(data_sparse, seen_words=0.5):
+    # check dimension looped over
+
+    data = data_sparse.todense() 
+    data_seen = np.zeros(data.shape)
+    j=0
+    for row in data:
+        a = np.squeeze(np.array(row))
+        b = list(itertools.chain.from_iterable([i]*e for i,e in enumerate(a.astype(int))))
+
+        c = np.zeros(len(a), dtype = int)
+        ind = np.random.choice(b,(len(b)+1)/2,False)
+        a_new = np.zeros(len(a))
+        
+        for i in ind:
+            a_new[i] +=1
+        data_seen[j,:] = a_new
+        j+=1
+    data_unseen = data - data_seen
+
+    return csc_matrix(data_seen), csc_matrix(data_unseen)
 
 def load_dataset(argdict):
 	dataset = argdict['dataset']
@@ -170,17 +166,14 @@ def load_used_features(argdict):
 	
     dataset = argdict['dataset']
     if argdict['minfreq']>0:
-        print "loading used features with minimum", argdict['minfreq'], 'word frequency'
         f = gzip.open('data/'+dataset+'/docword_' + str(argdict['minfreq']) + '_indices.pklz','rb')
         used_features = pickle.load(f)
         f.close()
     elif argdict['entselect']>0:
-        print "loading used entropy features with", argdict['entselect'], 'features selected on entropy'
         f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['entselect'])+'_entselect_indices.pklz','rb')	
         used_features = pickle.load(f)
         f.close()
     else:
-        print 'all features used'
         used_features = None
 	
 	print "done"

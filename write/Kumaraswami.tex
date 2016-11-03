@@ -1,0 +1,49 @@
+\documentclass{article}
+
+
+\usepackage{amsmath,amssymb}
+%\usepackage{dsfont} %install texlive-fonts-extra 
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+
+\author{Otto Fabius}
+\title{Kumaraswami Latent Variables}
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+Instead of using Gaussian Latent Variables, as is the norm in VAE, one might like to use distributions with more discriminative ability than those with high probability mass around the mean. An obvious choice for such a distribution would be Beta distributed latent variables. In LDA the latent variables are Dirichlet diustributed, which is equivalent to normalized Beta latent variables, so this approach seems to  make sense. \\
+These Beta distributed variables, however, prevent backpropagation in a VAE approach since their inverse CDF is intractable and it is not a location-scale family such as the Normal Distribution. Therefore, one might use the Kumaraswami  distribution, which closely resembles the Beta distribution but has a closed-form inverse CDF, for the approximate posterior. Nalisnyck and Smith, SB-VAE, use this approach and instead of normalizing the latent variables, they use stick-breaking priors. (elaborate on difference - isnt normalizing just simpler and more efficient?) - See SBVAE 4.1. \\
+For $a = 1$ or $b = 1$, Kumaraswami equals Beta.
+
+\section{KL Divergence}
+
+We need the KL divergence between the Kumaraswami posterior and the Dirichlet prior:
+
+\begin{align}
+KL(q(\mathbf{\mathbf{\pi}_i}|\mathbf{x}_i)||p(\mathbf{\pi}_i;\alpha_0)) = \sum_{k=1}^{K}\mathbb{E}_q [\log q(v_{i,k})] - \mathbb{E}_q \log p(v_{i,k})]
+\end{align}
+
+Truncating the infinite-dimensional distribution (sti8ck breaking process) by setting $\pi_i,K$ to s.t. $\sum_{k=1}^{K}\pi_{i,k} = 1$, the KL divergence can be written as:
+
+\begin{align*}
+\sum_{k=1}^{K}\mathbb{E}_q [\log q(v_{i,k})] - \mathbb{E}_q \log p(v_{i,k})] = \frac{a_0 -\alpha}{a_0}(-e-\Psi(b_\phi-\frac{1}{b_\phi}))+ \log(a_\phi b_\phi) + \log B(\alpha, \beta) \\
+- \frac{b_\phi -1}{b_\phi} 
++ (\beta-1)b_\phi\sum_{m=1}^{\infty}\frac{1}{m+a_\phi b_\phi}B(\frac{m}{a_\phi},b_\phi)
+\end{align*}
+
+(is the Digamma function differentiable? If so, how to implement? Currently 2nd order taylor which works fine)\\
+
+where $e$ is Euler’s constant, $\Psi(\cdot)$ is the Digamma function, and $B(\cdot)$ is the Beta function.
+The infinite sum, which originates from a Taylor appriximation, can be approximated well by the first 2 or 3 terms. When $\beta$ is one, as when using a weighted sum of Beta distributed latent variables for a Dirichlet distribution, this last term vanishes. For a full derivation see Nalisnyck and Smith, SB-VAE.
+
+\section{Stick Breaking Priors}
+
+For now, see SVBAE 4.1
+
+\section{Reparametrization}
+
+
+
+\end{document}
