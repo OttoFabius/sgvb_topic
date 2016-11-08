@@ -46,8 +46,8 @@ class topic_model:
         self.logvar_cap = 3.
         self.lam = 0.
         self.N = argdict['trainset_size']
-        self.prior_alpha = 1. #this equals dirichlet prior
-        self.prior_beta = 3. #concentration parameter alpha0
+        self.prior_alpha = 1. #creates dirichlet process prior
+        self.prior_beta = 1. #concentration parameter alpha0
 
         #structure
         self.dimZ = argdict['dimZ']
@@ -236,12 +236,12 @@ class topic_model:
             #######################       Kumaraswami        ########################  
 
 
-            a = T.nnet.softplus(T.dot(self.params['We_mu'], H)  + self.params['be_mu']) + 1e-3
-            b = T.nnet.softplus(T.dot(self.params['We_var'], H)  + self.params['be_var']) + 1e-3
-            eps = srng.uniform(size=(self.dimZ, self.batch_size), low=0.01, high=0.99, dtype=theano.config.floatX) #one uniformly distributed val for each Kumaraswami distribution
+            a = T.nnet.softplus(T.dot(self.params['We_mu'], H)  + self.params['be_mu']) + 1e-5
+            b = T.nnet.softplus(T.dot(self.params['We_var'], H)  + self.params['be_var']) + 1e-5
+            eps = srng.uniform(size=(self.dimZ, self.batch_size), low=0.01, high=0.99, dtype=theano.config.floatX) 
 
             v = (1 - eps**(1/b))**(1/a)
-            T.concatenate([v, self.v_last]) #NB this makes one more latent dimension. This is offset
+            T.concatenate([v, self.v_last]) #Truncation. NB this makes one more latent dimension. 
 
             # Stick-breaking
             def stickbreak(v, z_prev, sl_used):

@@ -1,0 +1,79 @@
+\documentclass{beamer}
+
+\mode<presentation> {
+
+\usetheme{default}
+%\usetheme{Rochester}
+%\usecolortheme{lily}
+
+\setbeamertemplate{footline}[page number] 
+\beamertemplatenavigationsymbolsempty
+\setbeamertemplate{bibliography item}{} %Remove icons in bibliography
+}
+
+\usepackage{graphicx} % Allows including images
+\usepackage{amsmath}
+\usepackage{lmodern}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{wrapfig}
+
+
+
+\usepackage{tikz}
+\usetikzlibrary{bayesnet}
+
+\lstset{
+    language=[5.0]Lua,
+    basicstyle=\fontsize{11}{9},
+    sensitive=true,
+    breaklines=true,
+    tabsize=2
+}
+
+%----------------------------------------------------------------------------------------
+%	TITLE PAGE
+%----------------------------------------------------------------------------------------
+
+\title[Overview]{Topic Modelling: Deep Exponential Families} 
+\subtitle{relation to SGVB}
+
+\author{Otto Fabius} 
+\institute[UvA] 
+{University of Amsterdam \\
+Supervisor: P.Putzky \\ 
+Co-Supervisors: M. Welling, D.P. Kingma
+\medskip
+}
+\date{\today} % Date, can be changed to a custom date
+
+\begin{document}
+
+% \begin{frame}
+% \titlepage % Print the title page as the first slide
+% \end{frame}
+
+
+%----------------------------------------------------------------------------------------
+%	PRESENTATION SLIDES
+%----------------------------------------------------------------------------------------
+
+\begin{frame}
+\frametitle{Overview so far}
+\begin{itemize}
+\item{\textbf{Basic VAE approach:} Write up of approach + model (slightly outdated), ran tests on KOS. Works less well than LDA. \\
+Code is correct as it outperforms other (unaccepted) results with the same approach.}
+\item{\textbf{Random Projections:} Written out, Implemented, and tested Random Projections for infrequent words in case of a (prohibitively) large vocabulary. \\
+This improves results, but not by very much. }
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Overview so far}
+\begin{itemize}
+\item{\textbf{Kumaraswami distribution for discriminative Beta latent variables:} Rough write-up, code not yet finished - want to discuss need for stick-breaking process}
+\item{\textbf{GCE in VAE approach:} We can not do exactly the same as Thomas or Mart, but we can use part of it. Using this improves the results (lower bound) on KOS dataset. Need to rewrite the code for evaluating the perplexity with this approach.}
+\end{itemize}
+\end{frame}
+
+\end{document}
