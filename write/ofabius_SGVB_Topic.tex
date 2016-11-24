@@ -114,7 +114,7 @@ In this section we describe our initial approach for topic modeling with SGVB. I
 Within the general SGVB framework described in the previous chapter, we specify the following characteristics of our VAE Topic model:
 
 \begin{enumerate}
-	\item The representation of our documents $\mathbf{D}$
+	\item The representation of our documents $\mathbf{X}$
 	\item The encoder $q(\mathbf{z}|\mathbf{x})$
 	\item $p(z)$, a prior  over the latent variables
 	\item The transformation function $g_\phi(\boldsymbol{\epsilon},\mathbf{x})$
@@ -122,11 +122,11 @@ Within the general SGVB framework described in the previous chapter, we specify 
 	\item The decoder $p(\mathbf{x}|\mathbf{z})$
 \end{enumerate}
 
-The representation of the documents is a normalized Bag-of-Words representation s.t. document $i$ is represented by a unit vector $\hat{\mathbf{d}_i} = \frac{\mathbf{d}_i}{\sum_{k=1}^{V}d_{ik}}$. Although normalizing data is standard practice in neural network approaches (references...), typically each feature is normalized separately. In our approach, however, all features (word counts) of a data point (document) are normalized s.t. they represent word probabilities. This representation no longer contains information on the length of documents, which arguably weakly relates to topics.
+The representation of the documents is a normalized Bag-of-Words representation s.t. document $i$ is represented by a unit vector $\hat{\mathbf{x}_i} = \frac{\mathbf{x}_i}{\sum_{k=1}^{V}x_{ik}}$. Although normalizing data is standard practice in neural network approaches (references...), typically each feature is normalized separately. In our approach, however, all features (word counts) of a data point (document) are normalized s.t. they represent word probabilities. This representation no longer contains information on the length of documents, which arguably weakly relates to topics.
 \\
 The encoder $q(\mathbf{z}|\mathbf{x})$ is a fully connected neural network with one or more hidden layers with ReLu activation functions. The input is $\mathbf{d}$ and the output is the mean and log standard deviation \{$\boldsymbol{\mu}, \log \boldsymbol{\sigma} ^2\}$ of the Multivariate Gaussian $N(\boldsymbol{\mu}, \boldsymbol{\sigma} ^2\textbf{I})$. For one hidden layer this would be the following function:
 \begin{align}
-\mathbf{h} = \text{ReLu}(\mathbf{\hat{d}}\mathbf{W_{e1}} + \mathbf{b}) \\
+\mathbf{h} = \text{ReLu}(\mathbf{\hat{x}}\mathbf{W_{e1}} + \mathbf{b}) \\
 \boldsymbol{\mu} = \mathbf{hW}_{\mu} \\
 \log \boldsymbol{\sigma}^2 = \mathbf{hW}_{\sigma}
 \end{align} 
@@ -169,7 +169,7 @@ Notably, this is the lower bound per \textit{document}. In (bag-of-words) topic 
 \tilde{\mathcal{L}_w}(\boldsymbol{\theta}, \boldsymbol{\phi}, \mathbf{X}) = \frac{1}{\sum\limits_{i=1}^{N}\sum\limits_{k=1}^{K}\mathbf{X}_{ik}}\sum\limits_{i=1}^N \tilde{\mathcal{L}}(\boldsymbol{\theta}, \boldsymbol{\phi}, \mathbf{x_i})
 \end{align}
 
-We can not compare this lower bound directly to different models or measures and the lower bound is therefore merely for model optimization. Although \ref{LBest} and \ref{perwordLBest} are functionally equivalent, a per-word lower bound is more intuitive to work with in topic modeling and we prefer to use this measure when reporting experimental results over e.g. the lower bound per document.
+We can compare this lower bound estimate in \ref{perwordLBest} nor in \ref{LBest} directly to different models or measures and the lower bound estimate is therefore merely for model optimization. Although \ref{LBest} and \ref{perwordLBest} are functionally equivalent, a per-word lower bound is independent of average document size and more relatable to other per-word measures in topic modeling, so we prefer to use this measure when reporting experimental results over e.g. the lower bound per document.
 
 
 
@@ -192,7 +192,7 @@ Describe exactly how we use Graph Convolutions. The rest of the model does not c
 \chapter{Experiments}
 	\textit{Open question: How do we compare to e.g. Deep Exponential families if we don't use the same vocabulary size? Running Experiments with Deep Exponential Families myself is a lot of work and computation time and requires using good hyperparameters. One (mediocre) idea is to estimate the difference in model perplexity as a result of vocabulary reduction with the (theoretical and practical) results obtained by Kobayashi, or train one VAE model on the full vocabulary to obtain a good estimate for the difference. This last option will probably lead to numerical instability problems.}
 	\section{Datasets}
-	For all methods, we ran experiments on the KOS and the NY Times datasets, freely available at UCI\footnote{https://archive.ics.uci.edu/ml/datasets/Bag+of+Words}. Both datasets contain only words that occur more than ten times in the whole dataset. The KOS dataset contains 3430 documents and has a vocabulary size of 6906. The dataset was split into 3300 training documents and 130 test documents. The NY times dataset consists of 300,000 documents and has a vocabulary size of 102,660 words. For the NY Times dataset, we only use words that occur over 3,000 times in the dataset. This makes training time and model evaluation a lot faster, as both scale approximately linearly with input dimensionality. Leaving out infrequent words only has a minor effect on the perplexity of bag-of-word topic model perplexity, mainly due to Zipf's law (Cite Kobayashi). For this dataset, a test set of 1,000 documents was used.
+	For all methods, we ran experiments on the KOS and NY Times datasets, freely available at UCI\footnote{https://archive.ics.uci.edu/ml/datasets/Bag+of+Words}. Both datasets contain only words that occur more than ten times in the whole dataset. The KOS dataset contains 3430 documents and has a vocabulary size of 6906. The dataset was split into 3300 training documents and 130 test documents. The NY times dataset consists of 300,000 documents and has a vocabulary size of 102,660 words. For the NY Times dataset, we only use words that occur over 5,000 times in the dataset. This makes training time and model evaluation a lot faster, as both scale approximately linearly with input dimensionality. Leaving out infrequent words only has a minor effect on the perplexity of bag-of-word topic model perplexity, mainly due to Zipf's law (Cite Kobayashi). For this dataset, a test set of 1,000 documents was used.
 	\\
 	\section{Evaluation}
 	
@@ -203,13 +203,39 @@ Describe exactly how we use Graph Convolutions. The rest of the model does not c
 	\text{perplexity} =  \frac{1}{\sum\limits_{i=1}^{N}\sum\limits_{k=1}^{K}x_{ik}}\sum\limits_{i=1}^N\sum\limits_{k=1}^{K} \log p(x_{k}|\mathbf{z}_{i}^{s})x_{ik}^{u}
 	\end{align}\\
 	\textit{Note: take another look at perplexity calculation in DEF}
-
+	
+	\section{General Optimization Method}
+	We use Adam, learning rate 0.003 unless otherwise stated. Batch size .. for KOS and .. for NY Times. Describe weights initialization. KL Divergence is linearly increased during first 100 epochs of training. (different for NY Times?).
+	
+	\section{Reported metrics}
+	Do we need this section?
+	\\ 
+	Would describe lowerbound on train and test set and perplexity, all per word.
+	
 	\section{Topic VAE}
 	
-	For our experiments on KOS, we used one hidden layer of 400 units in the encoder and one hidden layer of 100 units in the decoder.  Using a more powerful decoder resulted in over-fitting on the train set. 
-	\\
-	Figure \ref{results_KOS} compares perplexities for KOS to LDA, as well as the achieved lower bound on the test set.
+	From Hinton: 24.12 \textit{A recipe for choosing the number of hidden units
+		Assuming that the main issue is overfitting rather than the amount of computation at training or
+		test time, estimate how many bits it would take to describe each data-vector if you were using a good
+		model (i.e. estimate the typical negative log2 probability of a datavector under a good model). Then
+		multiply that estimate by the number of training cases and use a number of parameters that is about
+		an order of magnitude smaller. If you are using a sparsity target that is very small, you may be able
+		to use more hidden units. If the training cases are highly redundant, as they typically will be for very
+		big training sets, you need to use fewer parameters.}\\
 
+	In this section we outline our experiments with the VAE Topic Model. \textit{(brief summary of section?)} 
+	
+	
+	
+	\subsection{Experiment 1: A first model}
+	Describe choice of number of latent variables, hidden units to start with (200e, 20d). Report lower bound train and test over time, as well as held-out test perplexity.
+	
+	\subsection{Hyperparameter optimization}
+	vary number of hidden units/layers/latent vars.
+	
+	Figure \ref{results_KOS} compares perplexities for KOS to LDA, as well as the achieved lower bound on the test set.
+	
+	\subsection{title}
 	
 	
 	\begin{tabular}{l|l|l}

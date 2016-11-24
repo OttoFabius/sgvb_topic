@@ -24,7 +24,7 @@ if __name__=="__main__":
 
     x = load_dataset(argdict)
 
-    x_csc = csc_matrix(x)
+    x = csc_matrix(x)
 
     # TODO put code below in load_dataset, include train/test splits
 
@@ -33,36 +33,42 @@ if __name__=="__main__":
         rest = np.load('data/'+argdict['dataset']+'/data_proj_'+str(argdict['minfreq'])+'.npy')
    
 
-    n_total, empty = x_csc.shape
+    n_total, empty = x.shape
     n_test = argdict['testset_size']
     n_train = argdict['trainset_size']
 
 
     # always use same test set
-    x_train = x_csc[:n_train,:]
-    x_test = x_csc[n_total-1-n_test:n_total,:]
+    x_test = x[:n_test,:]
+    x_train = x[n_total-n_train:n_total,:]
+
+    # x_train = x[:n_train,:]
+    # x_test = x[n_total-n_test:n_total,:]
 
     # normalize per document NB should optimize this method for use on large datasets
     if argdict['normalize_input']==1:
-        x_test_norm = csc_matrix(x_test/csc_matrix.sum(x_test, 1))
-        x_train_norm = csc_matrix(x_train/csc_matrix.sum(x_train, 1))
+        dl_train = np.ndarray.flatten(np.array(csc_matrix.sum(x_train, axis=1)))
+        dl_test  = np.ndarray.flatten(np.array(csc_matrix.sum(x_test , axis=1)))
+        x_test_notnorm = x_test
+        x_test = x_test/csc_matrix.sum(x_test, 1)
+        x_train = x_train/csc_matrix.sum(x_train, 1)
+
+        total_words_train = np.sum(dl_train)
 
     if argdict['rp']==1:
-        rest_train = rest[:n_train,:]
-        rest_test = rest[n_total-1-n_test:n_total,:]
+        rest_train = rest[:n_test,:]
+        rest_test = rest[n_total-1-n_train:n_total,:]
     else:
         rest_train = None
         rest_test = None
 
     unused_sum = get_unused_sum(argdict)
 
-
     argdict['voc_size'] = x_train.shape[1]
 
     print argdict
 
     used_features = load_used_features(argdict)
-
     model = topic_model(argdict)
 
     if len(sys.argv) > 2 and sys.argv[2] == "--load":
@@ -76,12 +82,12 @@ if __name__=="__main__":
                     recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
         epoch = 0
 
-        testlowerbound, recon_test, KLD_test = model.getLowerBound(x_test_norm, x_test, unused_sum, epoch, rest=rest_test)
-        print 'lb test', testlowerbound/(n_test-n_test%argdict['batch_size'])
+        testlowerbound, recon_test, KLD_test = model.getLowerBound(x_test, dl_test, unused_sum, epoch, rest=rest_test)
+        print 'lb test', testlowerbound
 
         perplexity_est = list()
         for i in xrange(argdict['samples']):
-            perplexity_est.append(model.calc_perplexity(argdict, x_test, unused_sum))
+            perplexity_est.append(model.calc_perplexity(argdict, x_test_notnorm, unused_sum))
         perplexity_list.append(np.mean(perplexity_est))
         perp_sem_list.append(np.std(perplexity_est)/np.sqrt(argdict['samples']))
         print 'perplexity is', perplexity_list[-1], 'with sem', perp_sem_list[-1]
@@ -94,7 +100,7 @@ if __name__=="__main__":
         if epoch % argdict['save_every'] == 0:    
             perplexity_est = list()
             for i in xrange(argdict['samples']):
-                perplexity_est.append(model.calc_perplexity(argdict, x_test, unused_sum))
+                perplexity_est.append(model.calc_perplexity(argdict, x_test_notnorm, unused_sum))
             perplexity_list.append(np.mean(perplexity_est))
             perp_sem_list.append(np.std(perplexity_est)/np.sqrt(argdict['samples']))
             print 'perplexity is', perplexity_list[-1], 'with sem', perp_sem_list[-1]
@@ -104,29 +110,27 @@ if __name__=="__main__":
 
         np.random.shuffle(idx)
         x_train = x_train[idx,:]
-
+        dl_train = dl_train[idx]
 
         if argdict['rp']==1:
             rest_train = rest_train[idx,:]
 
-        x_train_norm = x_train_norm[idx,:]
-
-        lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train_norm, x_train, unused_sum, epoch, rest=rest_train)
-        testlowerbound, recon_test, KLD_test = model.getLowerBound(x_test_norm, x_test, unused_sum, epoch, rest=rest_test) 
+        lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train, dl_train, unused_sum, epoch, rest=rest_train)
+        testlowerbound, recon_test, KLD_test = model.getLowerBound(x_test, dl_test, unused_sum, epoch, rest=rest_test) 
 
         if epoch == 1:
             print time.time() - start, 'seconds for first epoch'
-        print 'epoch ', epoch, 'lb: ', lowerbound/n_train, 'lb test', \
-                    testlowerbound/(n_test-n_test%argdict['batch_size']), \
-                    'recon test', recon_test/(n_test-n_test%argdict['batch_size']), \
-                    'KLD test', KLD_test/(n_test-n_test%argdict['batch_size'])
-        lowerbound_list     = np.append(lowerbound_list     , lowerbound    /n_train)
-        KLD_list            = np.append(KLD_list            , KLD           /n_train)
-        KLD_used_list       = np.append(KLD_used_list       , KLD_used      /n_train)
-        recon_train_list    = np.append(recon_train_list    , recon_train   /n_train)
+        print 'epoch ', epoch, 'lb: ', lowerbound, 'lb test', \
+                    testlowerbound, \
+                    'recon test', recon_test, \
+                    'KLD test', KLD_test
+        lowerbound_list     = np.append(lowerbound_list     , lowerbound )
+        KLD_list            = np.append(KLD_list            , KLD        )
+        KLD_used_list       = np.append(KLD_used_list       , KLD_used   )
+        recon_train_list    = np.append(recon_train_list    , recon_train)
 
-        recon_test_list     = np.append(recon_test_list     , recon_test    /(n_test-n_test%argdict['batch_size']))
-        testlowerbound_list = np.append(testlowerbound_list , testlowerbound/(n_test-n_test%argdict['batch_size']))
+        recon_test_list     = np.append(recon_test_list     , recon_test    )
+        testlowerbound_list = np.append(testlowerbound_list , testlowerbound)
  
     print "done, skipping saving stats, params"
     # save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \

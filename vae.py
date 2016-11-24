@@ -11,7 +11,6 @@ from collections import OrderedDict
 import cPickle as pickle
 from scipy.sparse import csr_matrix, csc_matrix
 from scipy.special import gammaln
-import q
 from helpfuncs import select_half
 
 def psi(x):
@@ -58,7 +57,7 @@ class topic_model:
         self.HUd2 = argdict['HUd2']
         self.voc_size = argdict['voc_size']
         
-        self.dirichlet = argdict['dirichlet']
+        self.stickbreak = argdict['stickbreak']
         self.normalize_input = argdict['normalize_input']
 
         #Adam
@@ -135,7 +134,7 @@ class topic_model:
             self.params.update(dict([('Wd3', Wd3), ('bd3', bd3)]))
 
 
-        if self.dirichlet==1:
+        if self.stickbreak==1:
             self.params_qnn = dict()
             names_qnn = pickle.load(open("qnn_names.pkl", "rb"))
             params_qnn = pickle.load(open("qnn_params.pkl", "rb"))
@@ -159,8 +158,8 @@ class topic_model:
 
         x       = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
         x_test  = th.sparse.csc_matrix(name='x_test', dtype=th.config.floatX)
-        x_notnorm = th.sparse.csc_matrix(name='x_notnorm', dtype=th.config.floatX)
 
+        dl = T.dvector(name='dl')
         rest = T.matrix(name='rest')
         epoch = T.iscalar('epoch')
         unused_sum = T.scalar('unused_sum')
@@ -184,7 +183,7 @@ class topic_model:
 
         KLD_factor = T.maximum(0, T.minimum(1, (epoch-self.KLD_free)/self.KLD_burnin))
 
-        if self.dirichlet==0:
+        if self.stickbreak==0:
             mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
             logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
             logvar = cap_logvar(logvar, self.logvar_cap)
@@ -194,9 +193,9 @@ class topic_model:
             if self.ignore_logvar==1:
                 z = mu
 
-            KLD   =  -self.KLD_weight*T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0)/theano.sparse.basic.sp_sum(x_notnorm, axis=0))
+            KLD   =  -self.KLD_weight*T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0))
 
-        if self.dirichlet==1:
+        if self.stickbreak==1:
 
             ############################       QNN Approach        #############################
 
@@ -270,11 +269,11 @@ class topic_model:
             KLD *= (self.prior_beta-1)*b
 
             KLD += ((a - self.prior_alpha)/a) * (-0.57721 - psi(b)- 1/b)
-            KLD += T.log(a*b) + T.log(beta_func(self.prior_alpha, self.prior_beta))
-            KLD += -(b-1)/b
+            KLD += T.log(a*b+1e-5) + T.log(beta_func(self.prior_alpha, self.prior_beta)+1e-5)
+            KLD += -(b-1)/(b+1e-5)
 
             KLD = T.sum(KLD, axis=0)
-            KLD = KLD/theano.sparse.basic.sp_sum(x_notnorm, axis=0)
+            KLD = KLD
             KLD = T.sum(KLD)
             KLD *= self.KLD_weight
             #################################################################################### 
@@ -297,16 +296,10 @@ class topic_model:
         y = y_notnorm/T.sum(y_notnorm, axis=0, keepdims=True)*(1-unused_sum)
 
         
-        # probs_from_samples = print_t(y, 'y')
-        
-        # f = theano.function([len(z), z[0])
-        # th.printing.debugprint(z[0])
-        # recon_err =  T.sum(T.sum(x*T.log(y+1e-10), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
-        # recon_err =  T.sum(theano.sparse.sp_sum(theano.sparse.basic.mul(x, T.log(y)), axis=0)/theano.sparse.basic.sp_sum(x, axis=0))
 
         logy = T.log(y+1e-10)
 
-        recon_err = T.sum(th.sparse.sp_sum(th.sparse.basic.mul(x, logy), axis=0))
+        recon_err = T.sum(th.sparse.sp_sum(th.sparse.basic.mul(x, logy), axis=0)*dl)
 
         lowerbound_train = recon_err - KLD_train
         lowerbound = recon_err - KLD
@@ -336,8 +329,8 @@ class topic_model:
             updates[v] = new_v
 
         
-        self.update      =  th.function([x, x_notnorm, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')#, mode=profmode)
-        self.lowerbound  =  th.function([x, x_notnorm, rest, unused_sum, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
+        self.update      =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')#, mode=profmode)
+        self.lowerbound  =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
         self.perplexity  =  th.function([x, x_test, unused_sum]     , perplexity, on_unused_input='ignore')
 
     def encode(self, x, rest=None):
@@ -420,7 +413,7 @@ class topic_model:
 
         return y_notnorm
 
-    def iterate(self, X_norm, X, unused_sum, epoch, rest=None):
+    def iterate(self, X, dl, unused_sum, epoch, rest=None):
         """Main method, slices data in minibatches and performs a training epoch. """
 
         lowerbound = 0
@@ -436,24 +429,21 @@ class topic_model:
         rest_batch = np.zeros((self.batch_size, self.HUe1)) #K=HUe1 for now
 
         for i in xrange(0,len(batches)-2):
-            X_norm_batch = X_norm[batches[i]:batches[i+1]]
             X_batch = X[batches[i]:batches[i+1]]
-
+            dl_batch = dl[batches[i]:batches[i+1]]
             if type(rest)==np.ndarray:
                 rest_batch = rest[batches[i]:batches[i+1]].T
-            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch  = self.update(X_norm_batch.T, X_batch.T, rest_batch, unused_sum, epoch)
 
-            if KLD_batch>self.batch_size*10:
-                print 'large KLD!', lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch
-                
+            lowerbound_batch, recon_err_batch, KLD_batch, KLD_train_batch  = self.update(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
+               
             lowerbound += lowerbound_batch
             recon_err += recon_err_batch
             KLD += KLD_batch
             KLD_train += KLD_train_batch
+            n_words = np.sum(dl)
+        return lowerbound/n_words, recon_err/n_words, KLD/n_words, KLD_train/n_words
 
-        return lowerbound, recon_err, KLD, KLD_train
-
-    def getLowerBound(self, data, data_notnorm, unused_sum, epoch, rest=None):
+    def getLowerBound(self, data, dl, unused_sum, epoch, rest=None):
         """Use this method for example to compute lower bound on testset"""
         lowerbound = 0
         recon_err = 0
@@ -465,26 +455,25 @@ class topic_model:
 
         rest_batch = np.zeros((self.batch_size, self.HUe1))
         for i in xrange(0,len(batches)-1):
-            if batches[i+1]<N:
+            if batches[i+1]<=N:
                 X_batch = data[batches[i]:batches[i+1]]
-                X_batch_notnorm = data_notnorm[batches[i]:batches[i+1]]
+                dl_batch = dl[batches[i]:batches[i+1]]
                 if type(rest)==np.ndarray:
                     rest_batch = rest[batches[i]:batches[i+1]].T
-                lb_batch, recon_batch, KLD = self.lowerbound(X_batch.T, X_batch_notnorm.T, rest_batch, unused_sum, epoch)
+                lb_batch, recon_batch, KLD = self.lowerbound(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
             else:
                 lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(
 
             lowerbound += lb_batch
             recon_err += recon_batch
 
-        return lowerbound, recon_err, KLD
+        return lowerbound/np.sum(dl), recon_err/np.sum(dl), KLD/np.sum(dl)
 
     def calc_perplexity(self, argdict, data, unused_sum):
 
         data_seen, data_unseen = select_half(data)
-
         if argdict['normalize_input']==1:
-            data_seen = csc_matrix(data_seen/csc_matrix.sum(data_seen, 1))
+            data_seen   = csc_matrix(data_seen  /csc_matrix.sum(data_seen  , 1))
 
         [N,dimX] = data.shape
         batches = np.arange(0, N, self.batch_size)
@@ -495,7 +484,8 @@ class topic_model:
 
         perplexity = 0
         n_words = 0
-        for i in xrange(0,len(batches)-2):
+
+        for i in xrange(0,len(batches)-1):
             batch_seen   = data_seen  [batches[i]:batches[i+1]]
             batch_unseen = data_unseen[batches[i]:batches[i+1]]
 

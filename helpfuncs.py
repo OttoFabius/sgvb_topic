@@ -35,7 +35,7 @@ def parse_config(fname):
     argdict['max_epochs'] = config.getint('parameters', 'max_epochs')
     argdict['rp'] = config.getint('parameters','rp')
     argdict['full_vocab'] = config.getint('parameters', 'use_full_vocab')
-    argdict['dirichlet'] = config.getint('parameters', 'dirichlet')
+    argdict['stickbreak'] = config.getint('parameters', 'stickbreak')
     argdict['normalize_input'] = config.getint('parameters', 'normalize_input')
     argdict['kld_weight'] = config.getfloat('parameters', 'kld_weight')
     argdict['ignore_logvar'] = config.getint('parameters', 'ignore_logvar')
