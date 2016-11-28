@@ -119,9 +119,9 @@ def select_half(data_sparse, seen_words=0.5):
     return csc_matrix(data_seen), csc_matrix(data_unseen)
 
 def load_dataset(argdict):
-	dataset = argdict['dataset']
+    dataset = argdict['dataset']
  
-	print "loading dataset with minimum", argdict['minfreq'], 'word frequency'
+    print "loading dataset with minimum", argdict['minfreq'], 'word frequency'
     if argdict['trainset_size']>0:
         print 'trainset size', argdict['trainset_size']
         f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'_'+argdict['trainset_size']+'traindocs.pklz','rb')
