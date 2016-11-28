@@ -125,7 +125,7 @@ def load_dataset(argdict):
     if argdict['trainset_size']>0:
         print 'trainset size', argdict['trainset_size']
         f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'_'+argdict['trainset_size']+'traindocs.pklz','rb')
-    elif argdict['trainset_size']==0
+    elif argdict['trainset_size']==0:
         print 'using all available train docs'
 	f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
 
