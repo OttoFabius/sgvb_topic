@@ -2,7 +2,7 @@ import gzip
 import cPickle as pickle
 import numpy as np
 import scipy.io
-from scipy.sparse import csc_matrix, csr_matrix, vstack, lil_matrix
+from scipy.sparse import csc_matrix, csr_matrix, vstack, lil_matrix, vstack
 import time
 import ConfigParser
 import matplotlib.pyplot as plt
@@ -120,27 +120,16 @@ def select_half(data_sparse, seen_words=0.5):
 
 def load_dataset(argdict):
 	dataset = argdict['dataset']
-	if argdict['dataset']=='kos': 
-		if argdict['minfreq']>0:
-			print "loading kos dataset with minimum", argdict['minfreq'], 'word frequency'
-			f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
-		elif argdict['entselect']>0:
-			f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['entselect'])+'_ent.pklz','rb')
-			print "loading kos dataset with", argdict['entselect'], 'features selected on entropy'
-		else:
-			print 'loading kos dataset full vocabulary'
-			f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
+ 
+	print "loading dataset with minimum", argdict['minfreq'], 'word frequency'
+    if argdict['trainset_size']>0:
+        print 'trainset size', argdict['trainset_size']
+        f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'_'+argdict['trainset_size']+'traindocs.pklz','rb')
+    elif argdict['trainset_size']==0
+        print 'using all available train docs'
+	f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
 
-	elif argdict['dataset']=='ny':
-		if argdict['minfreq']>0:
-			print "loading NY dataset with minimum", argdict['minfreq'], 'word frequency'
-			f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
-		elif argdict['entselect']>0:
-			f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['entselect'])+'_ent.pklz','rb')
-			print "loading NY dataset with", argdict['entselect'], 'features selected on entropy'
-		else:
-			print 'loading NY dataset full vocabulary'
-			f = gzip.open('data/ny/docwordny_matrix.pklz','rb')
+
 
 	x = pickle.load(f)
 	f.close()
@@ -209,7 +198,7 @@ def convert_to_matrix(dataset='kos', n_docs_max=3000):
 
 	np.save(str(filename).rsplit('.')[0] + '_matrix.npy', docs) 
 
-def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
+def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=10):
     """converts text file to scipy sparse matrix
     Created for NY Times dataset.
     text file must only contain '.' for the extension and must be structured as follows:
@@ -252,16 +241,6 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=20):
     f.close()
     print 'done'
 
-def initialize_model(argdict):
-    print "initializing model + graph..."
-  
-    if argdict['HUd1']==0:
-        model = topic_model_20layer(argdict)
-
-    else:
-        print 'no model selected :('
-    return model
-
 def select_features(mincount=0, dataset='kos'):
     start = time.time()
     print"loading pickled data"
@@ -303,6 +282,30 @@ def select_features(mincount=0, dataset='kos'):
 
 
     print "done, new shape of used data = ", data_pruned.shape
+
+def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
+    start = time.time()
+    print "loading pickled data"
+    f = gzip.open('data/'+dataset+'/docword_matrix_' + str(mincount) + '.pklz','rb')
+    data_orig = pickle.load(f)
+    f.close()
+
+    print "done"
+    print "csr"
+    data_orig = csr_matrix(data_orig)
+
+    # data_orig = csc_matrix.transpose(data_orig)
+    print "selecting docs"
+    data_train = data_orig[:n_train,:]
+    data_test = data_orig[data_orig.shape[0]-n_test:,:]
+    data = lil_matrix(concatenate_csr_matrices_by_rows(data_train, data_test))
+
+    print data_train.shape, data_test.shape
+
+    print 'saving'
+    f = gzip.open('data/'+dataset+'/docword_matrix_' + str(mincount) + '_' + str(n_train) + 'traindocs.pklz','wb')
+    pickle.dump(data, f)
+    f.close()
 
 def select_features_ent(n_features=1000, dataset='kos'):
 	
@@ -403,6 +406,11 @@ def create_rp(K=100, dataset = 'kos', mincount=50, orth=False):
     # f.close()
 
 
+def concatenate_csr_matrices_by_rows(matrix1, matrix2):
+    new_data = np.concatenate((matrix1.data, matrix2.data))
+    new_indices = np.concatenate((matrix1.indices, matrix2.indices))
+    new_ind_ptr = matrix2.indptr + len(matrix1.data)
+    new_ind_ptr = new_ind_ptr[1:]
+    new_ind_ptr = np.concatenate((matrix1.indptr, new_ind_ptr))
 
-
-
+    return csr_matrix((new_data, new_indices, new_ind_ptr))
