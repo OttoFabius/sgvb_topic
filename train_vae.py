@@ -117,10 +117,12 @@ if __name__=="__main__":
 
         if epoch == 1:
             print time.time() - start, 'seconds for first epoch'
-        print 'epoch ', epoch, 'lb: ', lowerbound, 'lb test', \
+        if epoch % argdict['save_every'] == 0: 
+            print 'epoch ', epoch, 'lb: ', lowerbound, 'lb test', \
                     testlowerbound, \
                     'recon test', recon_test, \
                     'KLD test', KLD_test
+                    
         lowerbound_list     = np.append(lowerbound_list     , lowerbound )
         KLD_list            = np.append(KLD_list            , KLD        )
         KLD_used_list       = np.append(KLD_used_list       , KLD_used   )
