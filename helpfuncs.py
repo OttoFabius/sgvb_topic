@@ -124,18 +124,17 @@ def load_dataset(argdict):
     print "loading dataset with minimum", argdict['minfreq'], 'word frequency'
     if argdict['trainset_size']>0:
         print 'trainset size', argdict['trainset_size']
-        f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'_'+argdict['trainset_size']+'traindocs.pklz','rb')
+        f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'_'+str(argdict['trainset_size'])+'traindocs.pklz','rb')
     elif argdict['trainset_size']==0:
         print 'using all available train docs'
-	f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
+        f = gzip.open('data/'+dataset+'/docword_matrix_'+str(argdict['minfreq'])+'.pklz','rb')
 
 
+    x = pickle.load(f)
+    f.close()
+    print "done"
 
-	x = pickle.load(f)
-	f.close()
-	print "done"
-
-	return x
+    return x
 
 def get_unused_sum(argdict):
     if argdict['full_vocab']==0:
@@ -155,7 +154,7 @@ def load_used_features(argdict):
 	
     dataset = argdict['dataset']
     if argdict['minfreq']>0:
-        f = gzip.open('data/'+dataset+'/docword_' + str(argdict['minfreq']) + '_indices.pklz','rb')
+        f = gzip.open('data/'+dataset+'/docword_matrix_' + str(argdict['minfreq']) + '.pklz','rb')
         used_features = pickle.load(f)
         f.close()
     elif argdict['entselect']>0:

@@ -19,3 +19,6 @@
 *.snm
 *.dvi
 *.toc
+*.bbl
+*.blg
+*.pyc
