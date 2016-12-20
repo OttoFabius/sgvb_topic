@@ -40,7 +40,7 @@ def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, sem, model_title, save_every
     plt.plot(xaxis, lowbound, 'b--')
     plt.gca().set_xscale("log")
 
-    plt.ylim((1700, 2800))
+    plt.ylim((1300, 2000))
     # plt.legend(['Perplexity', 'upper confidence', 'lower confidence'])
     plt.xlabel('Epochs')
     plt.ylabel('Perplexity')
@@ -48,6 +48,8 @@ def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, sem, model_title, save_every
     plt.title('Test Perplexity During Training')
     plt.savefig("results/vae_own/" + model_title + '/perplex')
     plt.close()
+    print "best stats:", np.min(lb), np.min(lb_test), np.min(perplex) 
+    print "end stats:", lb[-1], lb_test[-1], perplex[-1]
 
 def plot_used_dims(model, x_test, model_title):
     plt.figure()
@@ -63,24 +65,24 @@ def plot_used_dims(model, x_test, model_title):
 if __name__=="__main__":
 
     argdict = parse_config(sys.argv[1])
-    x = load_dataset(argdict)
-    x_csc = csc_matrix(x)
+    # x = load_dataset(argdict)
+    # x_csc = csc_matrix(x)
 
-    n_total, empty = x_csc.shape
-    x_train = x_csc[:argdict['trainset_size'],:]
-    x_test = x_csc[n_total-1-argdict['trainset_size']:n_total-1,:] #always same test set
-    argdict['samples'] = 10
-    if argdict['minfreq'] == 0:
-        selected_features=None
+    # n_total, empty = x_csc.shape
+    # x_train = x_csc[:argdict['trainset_size'],:]
+    # x_test = x_csc[n_total-1-argdict['trainset_size']:n_total-1,:] #always same test set
+    # argdict['samples'] = 10
+    # if argdict['minfreq'] == 0:
+    #     selected_features=None
 
 
-    n_test, voc_size = x_test.shape
-    argdict['voc_size'] = voc_size
+    # n_test, voc_size = x_test.shape
+    # argdict['voc_size'] = voc_size
 
-    model = topic_model(argdict)
+    # model = topic_model(argdict)
 
-    load_parameters(model, 'results/vae_own/' + sys.argv[1])
+    # load_parameters(model, 'results/vae_own/' + sys.argv[1])
     lb, lb_test, KLD, KLDtrain, recon_train, recon_test, perplexity, perp_sem, epoch = load_stats('results/vae_own/'+ sys.argv[1])
     plot_stats(lb, lb_test, KLD, KLDtrain, perplexity, perp_sem, sys.argv[1], argdict['save_every'])
-    plot_used_dims(model, x_test, sys.argv[1]) 
+    # plot_used_dims(model, x_test, sys.argv[1]) 
 

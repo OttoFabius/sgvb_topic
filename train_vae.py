@@ -23,8 +23,9 @@ if __name__=="__main__":
     argdict = parse_config(sys.argv[1])
 
     x = load_dataset(argdict)
-
     x = csc_matrix(x)
+    if sys.argv[2]=='GCE':
+        x = precompute_gce(x, argdict)
 
     # TODO put code below in load_dataset, include train/test splits
 
