@@ -23,9 +23,12 @@ if __name__=="__main__":
     argdict = parse_config(sys.argv[1])
 
     x = load_dataset(argdict)
+
+    # if sys.argv[2]=='GCE':
+    #     x = precompute_GCE(x, argdict)
     x = csc_matrix(x)
-    if sys.argv[2]=='GCE':
-        x = precompute_gce(x, argdict)
+
+
 
     # TODO put code below in load_dataset, include train/test splits
 
@@ -63,7 +66,7 @@ if __name__=="__main__":
     unused_sum = get_unused_sum(argdict)
 
     argdict['voc_size'] = x_train.shape[1]
-
+    print 'vocabulary size:', argdict['voc_size']
     print argdict
 
     used_features = load_used_features(argdict)
@@ -92,6 +95,7 @@ if __name__=="__main__":
 
     print 'iterating' 
     idx = np.arange(n_train)
+    print epoch, argdict['max_epochs']
     while epoch < argdict['max_epochs']:
 
         epoch += 1      

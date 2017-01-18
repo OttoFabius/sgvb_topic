@@ -244,22 +244,27 @@ def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
     f.close()
 
 def precompute_GCE(x, argdict):
-    
+    print "precomputing GCE"
     n_docs = x.shape[0]
     V = x.shape[1] 
     A = lil_matrix((V+n_docs, V+n_docs))
-    A = A+identity(n_docs+V)
+    A = lil_matrix(A+identity(n_docs+V))
+    print "fill in A"
     A[:n_docs,n_docs:] = x
     A[n_docs:,:n_docs] = x.T
+    print "diag"
     diagonals = np.squeeze(np.array(lil_matrix.sum(A, axis=1)))
     D_sqrt = diags(1/np.sqrt(diagonals), (0))
     G = D_sqrt.dot(A.dot(D_sqrt))
-
+    print "f"
     F = lil_matrix((n_docs+V, 1+V))
+    print 'a'
     F[:n_docs,0]=1
+    print 'b'
     F[n_docs:,1:] = identity(V)
+    print 'c'
     x_prime = G.dot(F)[:n_docs,:]
-
+    print "done"
     return x_prime
 
 def create_rp(K=100, dataset = 'kos', mincount=50, orth=False):
