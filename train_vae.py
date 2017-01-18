@@ -67,6 +67,7 @@ if __name__=="__main__":
 
     argdict['voc_size'] = x_train.shape[1]
     print 'vocabulary size:', argdict['voc_size']
+    break
     print argdict
 
     used_features = load_used_features(argdict)
