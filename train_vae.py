@@ -66,8 +66,7 @@ if __name__=="__main__":
     unused_sum = get_unused_sum(argdict)
 
     argdict['voc_size'] = x_train.shape[1]
-    print 'vocabulary size:', argdict['voc_size']
-    raw_input()
+
     print argdict
 
     used_features = load_used_features(argdict)
