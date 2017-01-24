@@ -187,8 +187,8 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=10):
     print 'done'
 
 def select_features(mincount=0, dataset='kos'):
-    start = time.time()
-    print"selecting features with minimum word count", mincount
+    "select features with min frequency n"""
+    print "selecting features with minimum word count", mincount
     if dataset=='ny':
     	print "NY dataset"
     	f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
@@ -219,6 +219,23 @@ def select_features(mincount=0, dataset='kos'):
     pickle.dump(rest_indices, f)
     f.close()
     print "done, new shape of used data = ", data_pruned.shape
+
+def select_features_n(n_features=100, dataset='kos'):
+    """Select N most frequent features"""
+    print "selecting", n_features, "most frequent features"
+    if dataset=='ny':
+        print "NY dataset"
+        f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
+    elif dataset=='kos':
+        print "kos dataset"
+        f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
+    data_orig = pickle.load(f)
+    f.close()
+    data_orig = csc_matrix(data_orig)
+    freqs = data_orig.sum(0)
+    indices = np.ndarray.flatten(np.array(np.argsort(freqs)))[::-1][:n_features]
+    data_new = data_orig[:,indices]
+    return data_new
 
 def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
     start = time.time()
