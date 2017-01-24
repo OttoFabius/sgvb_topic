@@ -220,7 +220,7 @@ def select_features(mincount=0, dataset='kos'):
     f.close()
     print "done, new shape of used data = ", data_pruned.shape
 
-def select_features_n(n_features=100, dataset='kos'):
+def select_features_n(n_features=8000, dataset='ny'):
     """Select N most frequent features"""
     print "selecting", n_features, "most frequent features"
     if dataset=='ny':
@@ -235,7 +235,14 @@ def select_features_n(n_features=100, dataset='kos'):
     freqs = data_orig.sum(0)
     indices = np.ndarray.flatten(np.array(np.argsort(freqs)))[::-1][:n_features]
     data_new = data_orig[:,indices]
-    return data_new
+
+    print "saving.."
+    f = gzip.open('data/'+dataset+'/docword_matrix_' + str(n_features) + '.pklz','wb')
+    pickle.dump(data_new, f)
+    f.close()
+    f = gzip.open('data/'+dataset+'/docword_' + str(n_features) + '_used_indices.pklz','wb')
+    pickle.dump(indices, f)
+    f.close()
 
 def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
     start = time.time()
