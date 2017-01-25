@@ -337,7 +337,7 @@ def perplexity_rest(data_train, indices_used, data_test):
 
     return perp/csc_matrix.sum(data_test)
 
-def select_half(data_sparse, seen_words=0.5):
+def select_half(data_sparse, seen_words=0.1):
     # select half of each document for perplexity calculation
 
     data = data_sparse.todense() 
