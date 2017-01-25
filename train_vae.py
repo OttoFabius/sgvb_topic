@@ -69,7 +69,7 @@ if __name__=="__main__":
 
     print argdict
 
-    used_features = load_used_features(argdict)
+    # used_features = load_used_features(argdict)
     model = topic_model(argdict)
 
     if len(sys.argv) > 2 and sys.argv[2] == "--load":
