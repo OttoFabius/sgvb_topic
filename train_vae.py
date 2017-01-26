@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from vae import topic_model
 
 
+
 if __name__=="__main__":
     seed(5)
     # THEANO_FLAGS=optimizer=None
@@ -23,14 +24,7 @@ if __name__=="__main__":
     argdict = parse_config(sys.argv[1])
 
     x = load_dataset(argdict)
-
-    # if sys.argv[2]=='GCE':
-    #     x = precompute_GCE(x, argdict)
     x = csc_matrix(x)
-
-
-
-    # TODO put code below in load_dataset, include train/test splits
 
     if argdict['rp']==1:        
         print 'using random projection of rest in encoder'
@@ -46,15 +40,20 @@ if __name__=="__main__":
     x_test = x[:n_test,:]
     x_train = x[n_total-n_train:n_total,:]
 
-    # normalize per document NB should optimize this method for use on large datasets
-    if argdict['normalize_input']==1:
-        dl_train = np.ndarray.flatten(np.array(csc_matrix.sum(x_train, axis=1)))
-        dl_test  = np.ndarray.flatten(np.array(csc_matrix.sum(x_test , axis=1)))
-        x_test_notnorm = x_test
-        x_test = x_test/csc_matrix.sum(x_test, 1)
-        x_train = x_train/csc_matrix.sum(x_train, 1)
+    dl_train = np.ndarray.flatten(np.array(csc_matrix.sum(x_train, axis=1)))
+    dl_test  = np.ndarray.flatten(np.array(csc_matrix.sum(x_test , axis=1)))
+    total_words_train = np.sum(dl_train)
 
-        total_words_train = np.sum(dl_train)
+
+    # normalize per document NB should optimize this method for use on large datasets
+
+    x_test_notnorm = x_test
+    x_test = csc_matrix(x_test/csc_matrix.sum(x_test, 1))
+    x_train = csc_matrix(x_train/csc_matrix.sum(x_train, 1))
+
+    if argdict['normalize_input']==2:
+        x_train_in = concatenate_csc_matrices_by_columns(x_train, csc_matrix(x_train/csc_matrix.sum(x_train,0)))
+        x_test_in = concatenate_csc_matrices_by_columns(x_test, csc_matrix(x_test/csc_matrix.sum(x_train,0)))
 
     if argdict['rp']==1:
         rest_train = rest[:n_test,:]
@@ -124,9 +123,9 @@ if __name__=="__main__":
             print time.time() - start, 'seconds for first epoch'
         if epoch % argdict['save_every'] == 0: 
             print 'epoch ', epoch, 'lb: ', lowerbound, 'lb test', \
-                    testlowerbound, \
-                    'recon test', recon_test, \
-                    'KLD test', KLD_test
+                    # testlowerbound, \
+                    # 'recon test', recon_test, \
+                    # 'KLD test', KLD_test
                     
         lowerbound_list     = np.append(lowerbound_list     , lowerbound )
         KLD_list            = np.append(KLD_list            , KLD        )
@@ -136,7 +135,7 @@ if __name__=="__main__":
         recon_test_list     = np.append(recon_test_list     , recon_test    )
         testlowerbound_list = np.append(testlowerbound_list , testlowerbound)
  
-    print "done, skipping saving stats, params"
+    print "done, saving stats, params"
     save_stats(            'results/vae_own/'+sys.argv[1], lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, \
                                                                     recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
     save_parameters(model, 'results/vae_own/'+sys.argv[1])
