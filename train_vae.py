@@ -141,5 +141,5 @@ if __name__=="__main__":
                                                                     recon_train_list, recon_test_list, perplexity_list, perp_sem_list)
     save_parameters(model, 'results/vae_own/'+sys.argv[1])
 
-plot_stats(lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, perplexity_list, perp_sem_list, sys.argv[1], argdict['save_every'])
-plot_used_dims(model, x_test, sys.argv[1]) 
+# plot_stats(lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, perplexity_list, perp_sem_list, sys.argv[1], argdict['save_every'])
+# plot_used_dims(model, x_test, sys.argv[1]) 
