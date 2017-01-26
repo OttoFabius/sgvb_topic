@@ -358,7 +358,6 @@ def select_half(data_sparse, seen_words=0.1):
         j+=1
         
     data_unseen = data - data_seen
-    print np.sum(data), np.sum(data_seen), np.sum(data_unseen)
 
     return csc_matrix(data_seen), csc_matrix(data_unseen)
 
