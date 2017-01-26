@@ -337,7 +337,7 @@ def perplexity_rest(data_train, indices_used, data_test):
 
     return perp/csc_matrix.sum(data_test)
 
-def select_half(data_sparse, seen_words=0.5):
+def select_half(data_sparse, seen_words=0.1):
     # select half of each document for perplexity calculation
 
     data = data_sparse.todense() 
@@ -348,7 +348,8 @@ def select_half(data_sparse, seen_words=0.5):
         b = list(itertools.chain.from_iterable([i]*e for i,e in enumerate(a.astype(int))))
 
         c = np.zeros(len(a), dtype = int)
-        ind = np.random.choice(b,(len(b)+1)/2,False)
+
+        ind = np.random.choice(b,(len(b)*seen_words+0.5),False)
         a_new = np.zeros(len(a))
         
         for i in ind:
@@ -357,6 +358,7 @@ def select_half(data_sparse, seen_words=0.5):
         j+=1
         
     data_unseen = data - data_seen
+    print np.sum(data), np.sum(data_seen), np.sum(data_unseen)
 
     return csc_matrix(data_seen), csc_matrix(data_unseen)
 
