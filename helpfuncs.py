@@ -39,7 +39,7 @@ def parse_config(fname):
     argdict['normalize_input'] = config.getint('parameters', 'normalize_input')
     argdict['kld_weight'] = config.getfloat('parameters', 'kld_weight')
     argdict['ignore_logvar'] = config.getint('parameters', 'ignore_logvar')
-
+    argdict['seen_words'] = config.getfloat('parameters', 'seen_words')
 
     if argdict['dataset_num'] == 0:
         argdict['dataset']='kos'

@@ -473,7 +473,7 @@ class topic_model:
 
     def calc_perplexity(self, argdict, data, unused_sum):
 
-        data_seen, data_unseen = select_half(data)
+        data_seen, data_unseen = select_half(data, seen_words=argdict['seen_words'])
         if argdict['normalize_input']==1:
             data_seen   = csc_matrix(data_seen  /csc_matrix.sum(data_seen  , 1))
 
