@@ -256,7 +256,7 @@ def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
     data_orig = csr_matrix(data_orig)
 
     print "selecting docs"
-    data_train = data_orig[:n_train,:]
+    data_train = data_orig[data_orig.shape[0]-n_test-n_train:,:]
     data_test = data_orig[data_orig.shape[0]-n_test:,:]
     data = lil_matrix(concatenate_csr_matrices_by_rows(data_train, data_test))
 
