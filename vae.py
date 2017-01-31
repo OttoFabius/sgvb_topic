@@ -6,7 +6,6 @@ from theano import ProfileMode, pp, printing
 import scipy as sp
 from theano.tensor.shared_randomstreams import RandomStreams
 import matplotlib.pyplot as plt
-from scipy.sparse import csr_matrix
 from collections import OrderedDict
 import cPickle as pickle
 from scipy.sparse import csr_matrix, csc_matrix
@@ -71,6 +70,7 @@ class topic_model:
 
         # np std is important, relates to normalization and such        ./np.sqrt(self.voc_size)       
         # --------------    Define model-specific dimensions    --------------------
+
         We1 = th.shared(np.random.normal(0,1,(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
@@ -336,7 +336,6 @@ class topic_model:
     def encode(self, x, rest=None):
         """Helper function to compute the encoding of a datapoint or minibatch to z"""
 
-
         We1 = self.params["We1"].get_value() 
         be1 = self.params["be1"].get_value()      
 
@@ -447,6 +446,8 @@ class topic_model:
         """Use this method for example to compute lower bound on testset"""
         lowerbound = 0
         recon_err = 0
+        KLD = 0
+
         [N,dimX] = data.shape
 
         batches = np.arange(0,N,self.batch_size)
@@ -460,12 +461,13 @@ class topic_model:
                 dl_batch = dl[batches[i]:batches[i+1]]
                 if type(rest)==np.ndarray:
                     rest_batch = rest[batches[i]:batches[i+1]].T
-                lb_batch, recon_batch, KLD = self.lowerbound(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
+                lb_batch, recon_batch, KLD_batch = self.lowerbound(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
             else:
                 lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(
-
+                                          
             lowerbound += lb_batch
             recon_err += recon_batch
+            KLD += KLD_batch
 
         return lowerbound/np.sum(dl), recon_err/np.sum(dl), KLD/np.sum(dl)
 

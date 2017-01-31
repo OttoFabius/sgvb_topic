@@ -46,7 +46,6 @@ if __name__=="__main__":
 
 
     # normalize per document NB should optimize this method for use on large datasets
-
     x_test_notnorm = x_test
     x_test = csc_matrix(x_test/csc_matrix.sum(x_test, 1))
     x_train = csc_matrix(x_train/csc_matrix.sum(x_train, 1))
@@ -123,9 +122,9 @@ if __name__=="__main__":
             print time.time() - start, 'seconds for first epoch'
         if epoch % argdict['save_every'] == 0: 
             print 'epoch ', epoch, 'lb: ', lowerbound, 'lb test', \
-                    # testlowerbound, \
-                    # 'recon test', recon_test, \
-                    # 'KLD test', KLD_test
+                    testlowerbound, \
+                    'recon test', recon_test, \
+                    'KLD test', KLD_test
                     
         lowerbound_list     = np.append(lowerbound_list     , lowerbound )
         KLD_list            = np.append(KLD_list            , KLD        )

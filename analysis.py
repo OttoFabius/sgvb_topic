@@ -40,7 +40,7 @@ def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, sem, model_title, save_every
     plt.plot(xaxis, lowbound, 'b--')
     plt.gca().set_xscale("log")
 
-    plt.ylim((1300, 2000))
+    plt.ylim((2000, 3000))
     # plt.legend(['Perplexity', 'upper confidence', 'lower confidence'])
     plt.xlabel('Epochs')
     plt.ylabel('Perplexity')

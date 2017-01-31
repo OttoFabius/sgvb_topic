@@ -267,27 +267,31 @@ def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
     pickle.dump(data, f)
     f.close()
 
-def precompute_GCE(x, argdict):
+def precompute_GCE(x, x_test, argdict):
     print "precomputing GCE"
     n_docs = x.shape[0]
+    print 'x', x.shape
     V = x.shape[1] 
     A = lil_matrix((V+n_docs, V+n_docs))
     A = lil_matrix(A+identity(n_docs+V))
     print "fill in A"
     A[:n_docs,n_docs:] = x
     A[n_docs:,:n_docs] = x.T
+    print 'shape of A:', A.shape
     print "diag"
     diagonals = np.squeeze(np.array(lil_matrix.sum(A, axis=1)))
     D_sqrt = diags(1/np.sqrt(diagonals), (0))
     G = D_sqrt.dot(A.dot(D_sqrt))
+    print 'shape of D:', G.shape
     print "f"
     F = lil_matrix((n_docs+V, 1+V))
+    print 'shape of F:,', F.shape
     print 'a'
     F[:n_docs,0]=1
-    print 'b'
     F[n_docs:,1:] = identity(V)
     print 'c'
     x_prime = G.dot(F)[:n_docs,:]
+    print 'shape of x prime:', x_prime.shape
     print "done"
     return x_prime
 
@@ -349,7 +353,7 @@ def select_half(data_sparse, seen_words=0.1):
 
         c = np.zeros(len(a), dtype = int)
 
-        ind = np.random.choice(b,(len(b)*seen_words+0.5),False)
+        ind = np.random.choice(b,int(len(b)*seen_words+0.5),False)
         a_new = np.zeros(len(a))
         
         for i in ind:
@@ -369,3 +373,12 @@ def concatenate_csr_matrices_by_rows(matrix1, matrix2):
     new_ind_ptr = np.concatenate((matrix1.indptr, new_ind_ptr))
 
     return csr_matrix((new_data, new_indices, new_ind_ptr))
+
+def concatenate_csc_matrices_by_columns(matrix1, matrix2):
+    new_data = np.concatenate((matrix1.data, matrix2.data))
+    new_indices = np.concatenate((matrix1.indices, matrix2.indices))
+    new_ind_ptr = matrix2.indptr + len(matrix1.data)
+    new_ind_ptr = new_ind_ptr[1:]
+    new_ind_ptr = np.concatenate((matrix1.indptr, new_ind_ptr))
+
+    return csc_matrix((new_data, new_indices, new_ind_ptr))
