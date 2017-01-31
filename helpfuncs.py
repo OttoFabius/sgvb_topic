@@ -256,7 +256,7 @@ def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
     data_orig = csr_matrix(data_orig)
 
     print "selecting docs"
-    data_train = data_orig[data_orig.shape[0]-n_test-n_train:data_orig.shape[0]-n_test,:]
+    data_train = data_orig[:n_train,:]
     data_test = data_orig[data_orig.shape[0]-n_test:,:]
     data = lil_matrix(concatenate_csr_matrices_by_rows(data_train, data_test))
 
@@ -341,7 +341,7 @@ def perplexity_rest(data_train, indices_used, data_test):
 
     return perp/csc_matrix.sum(data_test)
 
-def select_half(data_sparse, seen_words=0.1):
+def select_half(data_sparse, seen_words=0.5):
     # select half of each document for perplexity calculation
 
     data = data_sparse.todense() 
