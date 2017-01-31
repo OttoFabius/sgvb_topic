@@ -75,6 +75,8 @@ if __name__=="__main__":
         load_parameters(model, 'results/vae_own/' + sys.argv[1])
         lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, recon_train_list, \
                     recon_test_list, perplexity_list, perp_sem_list, epoch = load_stats('results/vae_own/' + sys.argv[1])
+        perplexity_list = list(perplexity_list)
+        perp_sem_list = list(perp_sem_list)
         print "Restarting at epoch: " + str(epoch) + ' with lowerbounds ', lowerbound_list[-1], testlowerbound_list[-1]
     else:
         lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, recon_train_list, \
@@ -101,6 +103,7 @@ if __name__=="__main__":
             perplexity_est = list()
             for i in xrange(argdict['samples']):
                 perplexity_est.append(model.calc_perplexity(argdict, x_test_notnorm, unused_sum))
+
             perplexity_list.append(np.mean(perplexity_est))
             perp_sem_list.append(np.std(perplexity_est)/np.sqrt(argdict['samples']))
             print 'perplexity is', perplexity_list[-1], 'with sem', perp_sem_list[-1]
