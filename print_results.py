@@ -1,6 +1,6 @@
 import numpy as np
 
-fname = 'results/vae_own/ny/def-comp/saved_every_epoch/'
+fname = 'results/vae_own/ny/increase/50k/'
 lb 		= np.load(fname+'lowerbound.npy')
 lb_test = np.load(fname+'lowerbound_test.npy')
 perp	= np.load(fname+'perplexity.npy')

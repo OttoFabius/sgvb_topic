@@ -34,12 +34,14 @@ def parse_config(fname):
     argdict['samples'] = config.getint('parameters', 'samples_perplex')
     argdict['max_epochs'] = config.getint('parameters', 'max_epochs')
     argdict['rp'] = config.getint('parameters','rp')
+    argdict['k'] = config.getint('parameters', 'k')
     argdict['full_vocab'] = config.getint('parameters', 'use_full_vocab')
     argdict['stickbreak'] = config.getint('parameters', 'stickbreak')
     argdict['normalize_input'] = config.getint('parameters', 'normalize_input')
     argdict['kld_weight'] = config.getfloat('parameters', 'kld_weight')
     argdict['ignore_logvar'] = config.getint('parameters', 'ignore_logvar')
     argdict['seen_words'] = config.getfloat('parameters', 'seen_words')
+
 
     if argdict['dataset_num'] == 0:
         argdict['dataset']='kos'
@@ -228,7 +230,7 @@ def select_features_n(n_features=8000, dataset='ny'):
         f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
     elif dataset=='kos':
         print "kos dataset"
-        f = gzip.open('data/'+dataset+'/docword_matrix.pklz','rb')
+        f = gzip.open('data/'+dataset+'/docword_matrix_10.pklz','rb')
     data_orig = pickle.load(f)
     f.close()
     data_orig = csc_matrix(data_orig)
@@ -256,7 +258,7 @@ def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
     data_orig = csr_matrix(data_orig)
 
     print "selecting docs"
-    data_train = data_orig[data_orig.shape[0]-n_test-n_train:,:]
+    data_train = data_orig[data_orig.shape[0]-n_test-n_train:data_orig.shape[0]-n_test,:]
     data_test = data_orig[data_orig.shape[0]-n_test:,:]
     data = lil_matrix(concatenate_csr_matrices_by_rows(data_train, data_test))
 
@@ -314,6 +316,7 @@ def create_rp(K=100, dataset = 'kos', mincount=50, orth=False):
         R = orth(R)
         print 'check orthogonality, max is ', np.max(np.dot(R.T, R))
     data_proj = data.dot(R)
+    print data_proj.shape
 
     print "saving data"
     np.save('data/'+dataset+'/R_' + str(mincount)+'.npy', R)

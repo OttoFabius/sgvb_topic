@@ -25,10 +25,6 @@ def relu(x, alpha=0.01):
 def cap_logvar(logvar,cap):
     return T.switch(logvar<cap, logvar, cap)
 
-def print_t(tensor, label):
-    tensor.name = label
-    tensor = theano.printing.Print(tensor.name, attrs=('__str__', 'shape'))(tensor)
-    return tensor
 
 class topic_model:
     def __init__(self, argdict):
@@ -55,6 +51,7 @@ class topic_model:
         self.HUd1 = argdict['HUd1']
         self.HUd2 = argdict['HUd2']
         self.voc_size = argdict['voc_size']
+        self.k = argdict['k']
         
         self.stickbreak = argdict['stickbreak']
         self.normalize_input = argdict['normalize_input']
@@ -72,13 +69,13 @@ class topic_model:
         # --------------    Define model-specific dimensions    --------------------
 
         We1 = th.shared(np.random.normal(0,1,(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
-        be1 = th.shared(np.random.normal(0,1,(argdict['HUe1'],1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+        be1 = th.shared(np.random.normal(0,1,(argdict['HUe1']+self.k,1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
         if self.HUe2==0:
             H_e_last = argdict['HUe1']
 
         elif self.HUe2!=0:
-            We2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'], argdict['HUe1'])).astype(th.config.floatX), name = 'We2')
+            We2 = th.shared(np.random.normal(0,1./np.sqrt(float(argdict['HUe1'])),(argdict['HUe2'], argdict['HUe1'] + self.k)).astype(th.config.floatX), name = 'We2')
             be2 = th.shared(np.zeros((argdict['HUe2'],1)).astype(th.config.floatX), name = 'be2', broadcastable=(False,True))
            
             if self.HUe3==0:
@@ -165,11 +162,12 @@ class topic_model:
         unused_sum = T.scalar('unused_sum')
 
         srng = T.shared_randomstreams.RandomStreams()
-
-        H_lin = th.sparse.dot(self.params['We1'], x) + self.params['be1']
-
-        if self.rp==1:
-            H_lin += rest
+        H_lin = th.sparse.dot(self.params['We1'], x) 
+        if self.rp==0:
+            H_lin = H_lin+self.params['be1']
+        elif self.rp==1:
+            H_lin = T.concatenate([H_lin, rest], axis=0)
+            H_lin =  H_lin + self.params['be1'] 
 
         H = relu(H_lin)
 
@@ -197,44 +195,6 @@ class topic_model:
 
         if self.stickbreak==1:
 
-            ############################       QNN Approach        #############################
-
-            #                   NB need to remove We_var and be_var
-
-            # alpha = T.nnet.relu(T.dot(self.params['We_mu'], H)  + self.params['be_mu']) #encoding of dirichlet distributed latent variables
-            # eps = srng.uniform(size=(1, self.dimZ* self.batch_size), dtype=theano.config.floatX) #one uniformly distributed val for each Gamma distribution
-            
-            # alpha_vec = T.reshape(alpha, [1,self.dimZ*self.batch_size]) #not sure if this reshape works correctly yet!
-
-            # qnn_input = T.concatenate([alpha_vec, eps], axis=0)
-
-            # H1_qnn = T.nnet.relu(T.dot(self.params_qnn["W1"], qnn_input) + self.params_qnn["b1"])
-            # H2_qnn = T.nnet.relu(T.dot(self.params_qnn["W2"], H1_qnn) + self.params_qnn["b2"])
-            # gammavars = T.dot(self.params_qnn["W3"], H2_qnn) + self.params_qnn["b3"] #these are the gamma variables
-
-            # z = gammavars/T.sum(gammavars,axis=1) #now we have the dirichlet distributed latent variables
-
-            # z = T.reshape(z, (self.dimZ, self.batch_size))
-
-
-            # summing over axis 0 is summing over latent variables, summing over 1 is summing over batch)
-            # alpha_0 = self.dimZ * self.alpha_prior #calculate alpha_0 by summing over dir.lat.vars
-            # beta_0 = T.sum(z, axis=0) #sum over priors for latent vars
-            
-
-            # KLD      =  T.sum(      T.gammaln(beta_0)           \
-            #                       - T.sum(T.gammaln(z), axis=0) \
-            #                       - T.gammaln(alpha_0)          \
-            #                       + self.dimZ * (T.gammaln(self.alpha_prior))   \
-            #                       + T.sum(    (z - self.alpha_prior) * (psi(z) - psi(beta_0))     , axis=0)       \
-            #                       )
-
-
-
-
-            #######################       Kumaraswami        ########################  
-
-
             a = T.nnet.softplus(T.dot(self.params['We_mu'], H)  + self.params['be_mu']) + 1e-5
             b = T.nnet.softplus(T.dot(self.params['We_var'], H)  + self.params['be_var']) + 1e-5
             eps = srng.uniform(size=(self.dimZ, self.batch_size), low=0.01, high=0.99, dtype=theano.config.floatX) 
@@ -254,27 +214,7 @@ class topic_model:
                                   )
 
             z, new_sl_used = out
-            
-            # KL Divergance of Beta and Kumaraswami
-
-            KLD =  (1./(1+a*b))*beta_func(1./a, b)                       
-            KLD += (1./(2+a*b))*beta_func(2./a, b)                              
-            KLD += (1./(3+a*b))*beta_func(3./a, b) 
-            KLD += (1./(4+a*b))*beta_func(4./a, b) 
-            KLD += (1./(5+a*b))*beta_func(5./a, b) 
-            KLD += (1./(6+a*b))*beta_func(6./a, b) 
-            KLD += (1./(7+a*b))*beta_func(7./a, b) 
-            KLD += (1./(8+a*b))*beta_func(8./a, b) 
-            KLD += (1./(9+a*b))*beta_func(9./a, b)
-            KLD *= (self.prior_beta-1)*b
-
-            KLD += ((a - self.prior_alpha)/a) * (-0.57721 - psi(b)- 1/b)
-            KLD += T.log(a*b+1e-5) + T.log(beta_func(self.prior_alpha, self.prior_beta)+1e-5)
-            KLD += -(b-1)/(b+1e-5)
-
-            KLD = T.sum(KLD, axis=0)
-            KLD = KLD
-            KLD = T.sum(KLD)
+            KLD = self.kld_kum(a, b)
             KLD *= self.KLD_weight
             #################################################################################### 
 
@@ -331,86 +271,28 @@ class topic_model:
         
         self.update      =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')#, mode=profmode)
         self.lowerbound  =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
-        self.perplexity  =  th.function([x, x_test, unused_sum]     , perplexity, on_unused_input='ignore')
+        self.perplexity  =  th.function([x, x_test, unused_sum, rest]     , perplexity, on_unused_input='ignore')
 
-    def encode(self, x, rest=None):
-        """Helper function to compute the encoding of a datapoint or minibatch to z"""
+    def kld_kum(self, a, b):
+        KLD =  (1./(1+a*b))*beta_func(1./a, b)    
+        KLD += (1./(2+a*b))*beta_func(2./a, b)                              
+        KLD += (1./(3+a*b))*beta_func(3./a, b) 
+        KLD += (1./(4+a*b))*beta_func(4./a, b) 
+        KLD += (1./(5+a*b))*beta_func(5./a, b) 
+        KLD += (1./(6+a*b))*beta_func(6./a, b) 
+        KLD += (1./(7+a*b))*beta_func(7./a, b) 
+        KLD += (1./(8+a*b))*beta_func(8./a, b) 
+        KLD += (1./(9+a*b))*beta_func(9./a, b)
+        KLD *= (self.prior_beta-1)*b
 
-        We1 = self.params["We1"].get_value() 
-        be1 = self.params["be1"].get_value()      
+        KLD += ((a - self.prior_alpha)/a) * (-0.57721 - psi(b)- 1/b)
+        KLD += T.log(a*b+1e-5) + T.log(beta_func(self.prior_alpha, self.prior_beta)+1e-5)
+        KLD += -(b-1)/(b+1e-5)
 
-        We_mu = self.params["We_mu"].get_value()
-        be_mu = self.params["be_mu"].get_value()
+        KLD = T.sum(KLD, axis=0)
+        KLD = T.sum(KLD)
 
-        We_var = self.params["We_var"].get_value()
-        be_var = self.params["be_var"].get_value()
-
-        H = np.dot(We1, x) + be1 
-
-        if type(rest)==np.ndarray:
-            H = H+rest
-
-        H[H<0] = 0
-
-        if self.HUe2!=0:
-            We2 = self.params["We2"].get_value() 
-            be2 = self.params["be2"].get_value() 
-
-            H =  np.dot(We2, H) + be2
-            H[H<0] = 0
-
-        if self.HUe3!=0:
-            We3 = self.params["We3"].get_value() 
-            be3 = self.params["be3"].get_value() 
-
-            H =  np.dot(We3, H) + be3
-            H[H<0] = 0
-
-        mu  = np.dot(We_mu, H)  + be_mu
-        logvar = np.dot(We_var, H) + be_var
-
-        logvar[logvar>self.logvar_cap] = self.logvar_cap
-
-        return mu, logvar
-
-    def decode(self, mu, logvar):
-        """Helper function to compute the decoding of a datapoint from z to x"""   
-        z = np.random.normal(mu, (np.exp(0.5*logvar)))
-
-        Wd1 = self.params["Wd1"].get_value()
-        bd1 = self.params["bd1"].get_value()
-
-        if self.HUd1==0:
-            y_lin = np.dot(Wd1, z) + bd1 
-        elif self.HUd1!=0:
-            Wd2 = self.params["Wd2"].get_value()
-            bd2 = self.params["bd2"].get_value()  
-
-            H_d = np.dot(Wd1, z) + bd1 
-            H_d[H_d<0] = 0
-
-            if self.HUd2==0:
-                y_lin = np.dot(Wd2, H_d)  + bd2
-
-            elif self.HUd2!=0:
-                Wd3 = self.params["Wd3"].get_value()
-                bd3 = self.params["bd3"].get_value() 
-
-                H_d = np.dot(Wd2, H_d) + bd2
-                H_d[H_d<0] = 0.
-
-                y_lin = np.dot(Wd3, H_d)  + bd3
-
-
-        # y_lin[y_lin<-3]=-3
-        # y_lin[y_lin> 3]= 3
-
-
-
-        y_notnorm = np.exp(y_lin)
-
-
-        return y_notnorm
+        return KLD
 
     def iterate(self, X, dl, unused_sum, epoch, rest=None):
         """Main method, slices data in minibatches and performs a training epoch. """
@@ -471,7 +353,7 @@ class topic_model:
 
         return lowerbound/np.sum(dl), recon_err/np.sum(dl), KLD/np.sum(dl)
 
-    def calc_perplexity(self, argdict, data, unused_sum):
+    def calc_perplexity(self, argdict, data, unused_sum, rest=None):
 
         data_seen, data_unseen = select_half(data, seen_words=argdict['seen_words'])
         if argdict['normalize_input']==1:
@@ -486,17 +368,95 @@ class topic_model:
 
         perplexity = 0
         n_words = 0
-
+        perps = []
+    
         for i in xrange(0,len(batches)-1):
             batch_seen   = data_seen  [batches[i]:batches[i+1]]
             batch_unseen = data_unseen[batches[i]:batches[i+1]]
 
-            perplexity_batch = self.perplexity(batch_seen.T, batch_unseen.T, unused_sum)
-            n_words += csc_matrix.sum(batch_unseen)
+            if type(rest)==np.ndarray:
+                rest_batch = rest[batches[i]:batches[i+1]].T
 
+            perplexity_batch = self.perplexity(batch_seen.T, batch_unseen.T, unused_sum, rest_batch)
+            n_words += csc_matrix.sum(batch_unseen)
             perplexity += perplexity_batch
 
+            perps.append(perplexity_batch)
 
         perp_per_word = perplexity/n_words
-
         return np.exp(-perp_per_word)
+
+
+    def encode(self, x, rest=None):
+        """Helper function to compute the encoding of a datapoint or minibatch to z"""
+
+        We1 = self.params["We1"].get_value() 
+        be1 = self.params["be1"].get_value()      
+
+        We_mu = self.params["We_mu"].get_value()
+        be_mu = self.params["be_mu"].get_value()
+
+        We_var = self.params["We_var"].get_value()
+        be_var = self.params["be_var"].get_value()
+
+        H = np.dot(We1, x) + be1 
+
+        if type(rest)==np.ndarray:
+            H = np.concatenate((H+rest),axis=0)
+
+        H[H<0] = 0
+
+        if self.HUe2!=0:
+            We2 = self.params["We2"].get_value() 
+            be2 = self.params["be2"].get_value() 
+
+            H =  np.dot(We2, H) + be2
+            H[H<0] = 0
+
+        if self.HUe3!=0:
+            We3 = self.params["We3"].get_value() 
+            be3 = self.params["be3"].get_value() 
+
+            H =  np.dot(We3, H) + be3
+            H[H<0] = 0
+
+        mu  = np.dot(We_mu, H)  + be_mu
+        logvar = np.dot(We_var, H) + be_var
+
+        logvar[logvar>self.logvar_cap] = self.logvar_cap
+
+        return mu, logvar
+
+    def decode(self, mu, logvar):
+        """Helper function to compute the decoding of a datapoint from z to x"""   
+        z = np.random.normal(mu, (np.exp(0.5*logvar)))
+
+        Wd1 = self.params["Wd1"].get_value()
+        bd1 = self.params["bd1"].get_value()
+
+        if self.HUd1==0:
+            y_lin = np.dot(Wd1, z) + bd1 
+        elif self.HUd1!=0:
+            Wd2 = self.params["Wd2"].get_value()
+            bd2 = self.params["bd2"].get_value()  
+
+            H_d = np.dot(Wd1, z) + bd1 
+            H_d[H_d<0] = 0
+
+            if self.HUd2==0:
+                y_lin = np.dot(Wd2, H_d)  + bd2
+
+            elif self.HUd2!=0:
+                Wd3 = self.params["Wd3"].get_value()
+                bd3 = self.params["bd3"].get_value() 
+
+                H_d = np.dot(Wd2, H_d) + bd2
+                H_d[H_d<0] = 0.
+
+                y_lin = np.dot(Wd3, H_d)  + bd3
+
+
+        y_notnorm = np.exp(y_lin)
+
+
+        return y_notnorm

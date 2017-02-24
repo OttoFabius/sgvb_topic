@@ -55,8 +55,8 @@ if __name__=="__main__":
         x_test_in = concatenate_csc_matrices_by_columns(x_test, csc_matrix(x_test/csc_matrix.sum(x_train,0)))
 
     if argdict['rp']==1:
-        rest_train = rest[:n_test,:]
-        rest_test = rest[n_total-1-n_train:n_total,:]
+        rest_test = rest[:n_test,:]
+        rest_train = rest[n_total-n_train:n_total,:]
     else:
         rest_train = None
         rest_test = None
@@ -77,7 +77,8 @@ if __name__=="__main__":
                     recon_test_list, perplexity_list, perp_sem_list, epoch = load_stats('results/vae_own/' + sys.argv[1])
         perplexity_list = list(perplexity_list)
         perp_sem_list = list(perp_sem_list)
-        print "Restarting at epoch: " + str(epoch) + ' with lowerbounds ', lowerbound_list[-1], testlowerbound_list[-1]
+
+        print "Restarting at epoch: " + str(epoch)
     else:
         lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, recon_train_list, \
                     recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
@@ -87,8 +88,9 @@ if __name__=="__main__":
         print 'lb test', testlowerbound
 
         perplexity_est = list()
+
         for i in xrange(argdict['samples']):
-            perplexity_est.append(model.calc_perplexity(argdict, x_test_notnorm, unused_sum))
+            perplexity_est.append(model.calc_perplexity(argdict, x_test_notnorm, unused_sum, rest=rest_test))
         perplexity_list.append(np.mean(perplexity_est))
         perp_sem_list.append(np.std(perplexity_est)/np.sqrt(argdict['samples']))
         print 'perplexity is', perplexity_list[-1], 'with sem', perp_sem_list[-1]
@@ -102,7 +104,7 @@ if __name__=="__main__":
         if epoch % argdict['save_every'] == 0:    
             perplexity_est = list()
             for i in xrange(argdict['samples']):
-                perplexity_est.append(model.calc_perplexity(argdict, x_test_notnorm, unused_sum))
+                perplexity_est.append(model.calc_perplexity(argdict, x_test_notnorm, unused_sum, rest=rest_test))
 
             perplexity_list.append(np.mean(perplexity_est))
             perp_sem_list.append(np.std(perplexity_est)/np.sqrt(argdict['samples']))

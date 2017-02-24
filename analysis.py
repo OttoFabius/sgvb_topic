@@ -15,7 +15,7 @@ def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, sem, model_title, save_every
     plt.gca().set_xscale("log")
     plt.xlabel('Epochs')
     plt.ylabel('Log KLD')
-    plt.xlim((0, 0.5))
+    plt.ylim((0, 0.5))
 
     plt.title('KL Divergence')
     plt.legend(['KLD', 'KLD used'])
@@ -40,7 +40,7 @@ def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, sem, model_title, save_every
     plt.plot(xaxis, lowbound, 'b--')
     plt.gca().set_xscale("log")
 
-    plt.ylim((2000, 3000))
+    plt.ylim((1200, 3000))
     # plt.legend(['Perplexity', 'upper confidence', 'lower confidence'])
     plt.xlabel('Epochs')
     plt.ylabel('Perplexity')
