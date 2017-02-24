@@ -253,9 +253,13 @@ def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
     data_orig = pickle.load(f)
     f.close()
 
-    print "done"
+    f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','rb')
+    data_rest_orig = pickle.load(f)
+    f.close()
+
     print "csr"
     data_orig = csr_matrix(data_orig)
+    data_rest_orig = csr_matrix(data_rest_orig)
 
     print "selecting docs"
     data_train = data_orig[data_orig.shape[0]-n_test-n_train:data_orig.shape[0]-n_test,:]
@@ -264,9 +268,16 @@ def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
 
     print data_train.shape, data_test.shape
 
+    data_rest_train = data_orig[data_rest_orig.shape[0]-n_test-n_train:data_orig.shape[0]-n_test,:]
+    data_rest_test = data_orig[data_rest_orig.shape[0]-n_test:,:]
+    data_rest = lil_matrix(concatenate_csr_matrices_by_rows(data_rest_train, data_rest_test))
+
     print 'saving'
     f = gzip.open('data/'+dataset+'/docword_matrix_' + str(mincount) + '_' + str(n_train) + 'traindocs.pklz','wb')
     pickle.dump(data, f)
+    f.close()
+    f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '_' + str(n_train) + 'traindocs.pklz','wb')
+    pickle.dump(data_rest, f)
     f.close()
 
 def precompute_GCE(x, x_test, argdict):
@@ -297,10 +308,13 @@ def precompute_GCE(x, x_test, argdict):
     print "done"
     return x_prime
 
-def create_rp(K=100, dataset = 'kos', mincount=50, orth=False):
+def create_rp(K=100, dataset = 'kos', mincount=50, orth=False, traindocs=0):
     #memory error for orth = true on server
     #using something K = 1000 for ny as a baseline
-    f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','rb')
+    if traindocs==0:
+        f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','rb')
+    else: 
+        f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '_' + str(traindocs) + 'traindocs.pklz','rb')
     data_rest = pickle.load(f)
     f.close()
     
