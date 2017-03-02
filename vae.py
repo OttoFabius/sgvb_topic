@@ -165,7 +165,7 @@ class topic_model:
         H_lin = th.sparse.dot(self.params['We1'], x) 
         if self.rp==0:
             H_lin = H_lin+self.params['be1']
-        elif self.rp==1:
+        else:
             H_lin = T.concatenate([H_lin, rest], axis=0)
             H_lin =  H_lin + self.params['be1'] 
 
