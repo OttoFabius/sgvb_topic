@@ -49,9 +49,7 @@ Co-Supervisors: M. Welling, D.P. Kingma
 
 \begin{document}
 
-\begin{frame}
-\titlepage % Print the title page as the first slide
-\end{frame}
+
 
 
 %----------------------------------------------------------------------------------------
@@ -70,41 +68,60 @@ Co-Supervisors: M. Welling, D.P. Kingma
 \end{itemize}
 \end{frame}
 
-\section{Deep Exponential Families}
-
 \begin{frame}
-\frametitle{Deep Exponential Families (DEF)}
-\begin{itemize}
-\item{Idea: generative model with hierarchical latent representations.}
-\item{Each layer is an exponential family (e.g. Sparse Gamma, Bernoulli, Poisson)}
-\item{Natural parameters of each layer of latent variables $\mathbf{z_l}$ are controlled by inner product of previous layer $\mathbf{z_{l-1}}$ and learned weights $\mathbf{w_l}$}
-\item{Perform inference with "black box variational inference"\footnote{Ranganath, Rajesh, Sean Gerrish, and David M. Blei. "Black Box Variational Inference." (2013).}, using a mean field approximation family as inference model $q$}
-\end{itemize}
-\end{frame}
-
-\begin{frame}
-\frametitle{Results on NY Times}
+\frametitle{Comparison to DEF}
 \begin{itemize}
 \item{Training on 165000 NYT documents with $V = 8000$, evaluating perplexity on 1000 documents.}
 \item{$\text{Perp} =  \frac{1}{\sum\limits_{i=1}^{N}\sum\limits_{k=1}^{K}x_{ik}}\sum\limits_{i=1}^N\sum\limits_{k=1}^{K} \log p(x_{k}|\mathbf{z}_{i}^{s})x_{ik}^{u}$}
 \item{LDA: 2717. best DEF: 2251. Best Topic VAE: 2168}
-\item{How many latent variables should we use for comparison? (now 32)}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Comparison to DEF - Problems}
+\begin{itemize}
+\item{We do not have acces to the same NYT documents, although 1000 documents seems enough for a good estimate.}
+\item{How many latent variables should we use for a fair comparison? (now 32)}
 \end{itemize}
 \end{frame}
 
 \begin{frame}
 \frametitle{Perplexity considersations (1)}
-\begin{figure}
-\includegraphics[scale=0.5]{50_lb.png}
+\begin{figure}[!tbp]
+  \centering
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{50_lb.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{10_lb.png}
+  \end{minipage}
 \end{figure}
-\begin{figure}
-\includegraphics[scale=0.5]{50_perplex.png}
+\begin{figure}[!tbp]
+  \centering
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{50_perplex.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{10_perplex.png}
+  \end{minipage}
 \end{figure}
 \end{frame}
 
 
 \begin{frame}
 \frametitle{Perplexity considersations (2)}
+\begin{itemize}
+\item{Perplexity becomes a bad evaluation measure (in our case) when using few words for inference.}
+\item{This might not be the case for more linear methods}
+\item{This also means the lower bound should not be compared to perplexity, as done in Miao et al. "Neural Variational Inference for Text processing." (2016)}
+\end{itemize}
+To combat this problem, we could consider:
+\begin{itemize}
+\item{Normalizing according to the total number of words in stead of 10\% during perplexity calculation. This does result in lower values in the first hidden layer, so also doesnt seem great.}
+\item{Using dropout in first layer, or more directly: only using ten percent of each document for encoding during training. This trains model w.r.t. evaluation measure more than w.r.t. lowerbound and good inference on whole documents.}
+\end{itemize}
 \end{frame}
 
 \end{document}

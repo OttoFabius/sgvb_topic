@@ -6,6 +6,7 @@
 \usepackage{tikz}
 \usetikzlibrary{bayesnet}
 \usepackage{setspace}
+\usepackage{xcolor}
 
 \author{Otto Fabius}
 \title{SGVB Topic Modeling}
@@ -179,17 +180,45 @@ We cannot compare this lower bound estimate in \ref{perwordLBest} nor the one in
 
 
 \section{Stick Breaking Topic VAE}
-\subsection{Introduction}
  as described in this thesis, is that it assumes the latent variables are (approximately) normally distributed. For some datasets, it might be hard to encode data points in multiple independent normally distributed variables. LDA, with it's binary latent variables, has a much more discriminative distribution (the Beta Distribution) over latent variables non-centered distribution, such as in many binary latent variable models (e.g. LDA) might be might be more discriminative. As we have sparse data where data points (i.e. documents) frequently can be described by only a few of the used latent variables (roughly corresponding to topics), this seems particularly applicable to our application.  \\
-Therefore, we also investigate the use of a Stick-Breaking VAE (Nalisnyck \& Smith \cite{Nalisnick2016deep}) for 
+Therefore, we also investigate the use of a Stick-Breaking VAE (Nalisnyck \& Smith \cite{Nalisnick2016deep}) for Topic Modelling\\
+For $a = 1$ or $b = 1$, Kumaraswami equals Beta.
+
+\subsection{Stick Breaking Priors}
+
+For now, see SVBAE 4.1
+
+\subsection{Reparametrization}
+
+\subsection{KL Divergence}
+
+We need the KL divergence between the Kumaraswami posterior and the Dirichlet prior:
+
+\begin{align}
+KL(q(\mathbf{\mathbf{\pi}_i}|\mathbf{x}_i)||p(\mathbf{\pi}_i;\alpha_0)) = \sum_{k=1}^{K}\mathbb{E}_q [\log q(v_{i,k})] - \mathbb{E}_q \log p(v_{i,k})]
+\end{align}
+
+Truncating the infinite-dimensional distribution (sti8ck breaking process) by setting $\pi_i,K$ to s.t. $\sum_{k=1}^{K}\pi_{i,k} = 1$, the KL divergence can be written as:
+
+\begin{align*}
+\sum_{k=1}^{K}\mathbb{E}_q [\log q(v_{i,k})] - \mathbb{E}_q \log p(v_{i,k})] = \frac{a_0 -\alpha}{a_0}(-e-\Psi(b_\phi-\frac{1}{b_\phi}))+ \log(a_\phi b_\phi) + \log B(\alpha, \beta) \\
+- \frac{b_\phi -1}{b_\phi} 
++ (\beta-1)b_\phi\sum_{m=1}^{\infty}\frac{1}{m+a_\phi b_\phi}B(\frac{m}{a_\phi},b_\phi)
+\end{align*}
+
+(is the Digamma function differentiable? If so, how to implement? Currently 2nd order taylor which works fine)\\
+
+where $e$ is Euler’s constant, $\Psi(\cdot)$ is the Digamma function, and $B(\cdot)$ is the Beta function.
+The infinite sum, which originates from a Taylor appriximation, can be approximated well by the first 2 or 3 terms. When $\beta$ is one, as when using a weighted sum of Beta distributed latent variables for a Dirichlet distribution, this last term vanishes. For a full derivation see Nalisnyck and Smith, SB-VAE.
+
+
 
 \section{Random Projections}
 Idea: use a random projection of all scarce words in the dataset as extra information for the encoder. This hardly adds computational complexity, but might still improve inference.
 
-\section{Graph Convolutional Topic VAE}
+\section{Graph Convolutions for Topic VAE}
 
-note: try first order model in addition to reparamtetrization trick.  Use latex and incscape for figures?\\
-Bag-of-words data can be seen as a bi-partite graph between document nodes and word nodes (add image of this graph?). From this perspective, it makes sense to incorporate the work by Kipf \& Welling on GCNs in our approach. In the model detailed here, we use one Graph convolution in the encoder of a VAE Topic model. We only need to use one graph convolution because our data is a bipartite graph, so the maximum distance between any two nodes is 2 edges. \\
+Bag-of-words data can be seen as a bi-partite graph between document nodes and word nodes (add image of this graph?). From this perspective, it makes sense to look into incorporating the work by Kipf \& Welling on Graph Convolutional Networks in our approach. \\
 As detailed in \ref{GCN_section}, the first layer of a GCN is given by:
 \begin{align}\label{GCE_layer}
 H = \text{ReLU}(\bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}FW)
@@ -201,54 +230,55 @@ Where ReLU can be an other nonlinearity of choice. $\bar{A}$ is the (symmetric) 
 H = \text{ReLU}(X'W)
 \end{align}
 
-Where $X' = \bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}F$. While $F$ would logically reduce to $I$ since we have no node features, using this as the first layer of an encoder is problematic, mainly because we would have parameters in $W$ for each document in the training set ($W$ would have dimensionality $(N_d + V) \text{ x } H_{e1}$). This leads to problems applying the model to unseen data, as well as scalability issues. Therefore, we use $F$ to collapse $X'$ over the documents: instead of $F = I$, we define:
-
+Where $X' = \bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}F$. A straightforward way of using Graph Convolutions is to incorporate one (or more) Graph Convolutions in our encoder as in \ref{GCE_layer}. \\ In this case, $F$ would logically reduce to $I$ since we have no node features. \\
+Let us rewrite $X'W$, leaving out the self-connections $\mathbf{I}$ in $\mathbf{A}$: 
 \begin{align}
-{F} = 
-\begin{matrix} 
-\mathbf{b} && 0 \\
-0 && I
-\end{matrix}
+X' = \bar{D}^{-\frac{1}{2}}
+\left( \begin{matrix} 
+0 && G \\
+G^T && 0
+\end{matrix} \right) \bar{D}^{-\frac{1}{2}}W = \\
+\left(\begin{matrix}
+\bar{G}W_1 \\
+\bar{G^T}W_2
+\end{matrix}\right)\label{highlow}  
+\end{align}
+Where $\bar{G}_{ij} = 
+\frac{G_{ij}}{\sqrt{\sum_i G_{ij} \sum_{j} G_{ij}}}$ \textit{indexing isnt correct yet I think}.
+
+We now have multiplications with two weight matrices $W_1$ and $W_2$, one that has parameters for each $N_d$ documents and one that has parameters for each word in $V$. Having parameters for each document is not scalable to large datasets, especially since a batched approach to $\bar{G^T}W_2$ is impossible.\\
+One way of encoding some document-level information is to use the covariance matrix $\bar{G^T}\bar{G}$ in stead of $\bar{G^T}$. Now, the number of parameters in our first layer would scale with $(2\cdot V)$ instead of $(V+N)$. \ref{highlow} now becomes:
+\\
+\begin{align}
+\left(\begin{matrix}
+\bar{G}W_1 \\
+\bar{G^T}\bar{G}W_c
+\end{matrix}\right)
 \end{align}
 \\
-Where $I$ is $V$ x $V$ and $\mathbf{b}$ is a column vector of length $N_d$. This way, the number of parameters in $W$ is $( V + 1) \text{ x } H_{e1}$). \\
-Note that calculating $X'$ from $X$ uses the complete training set in $\bar{D}$. For our test set, $\bar{D}$ used for calculating $X'$ is always calculated based on the training data, although $\bar{D}$ can be recalculated to incorporate unseen data in practice.
-
-\subsection{Brief old write-up}
-One layer of a Graph Convolutional Network (Kipf and Welling, personal communication) is defined as: 
-
+Using a minibatch approach to $\bar{G^T}\bar{G}W_2$ requires calculating $\bar{G^T}\bar{G_{batch}}W_c$ for each batch, which is of complexity $O(V\text{ x }V \text{ x } h)$, where $h$ is the number of hidden units. Even for a large batch size, this is much more expensive than calculating the sparse multiplication $\bar{G}_{batch}W_1$, which is of $O(\text{nonzero}(\bar{G}_{batch}) \text{ x } h \text{ x } \text{batchsize})$. 
+\\
+Using the full covariance matrix for each minibatch allows for computing $\bar{G^T}\bar{G}$ only once. However, writing out the first layer for one row $\mathbf{g}$ of $\bar{G}$ shows us this approach does not combine information in $\mathbf{g}$ and $\bar{G}_T\bar{G}$:
 \begin{align}
-H = \text{ReLu}(\bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}XW)
+h_1 = \text{ReLU}(
+\left(\begin{matrix}
+\mathbf{g} \\
+\bar{G^T}\bar{G}
+\end{matrix}\right)W_1 +b_1)
+\\
+h_1 = 
+\text{ReLU}(\left(\begin{matrix}
+	\mathbf{g}W_{1a} \\
+	\bar{G^T}\bar{G}W_{1b}
+\end{matrix}\right) + b_1)
 \end{align}
-
-Here, $\bar{A}$ is the (symmetric) adjacency matrix $A$ with added self connections $I$:$\bar{A} = A+I$. In our application, this would be of dimension $(N_d + V) \text{ x } (N_d + V)$, with both the upper left corner and the bottom right corner an identity matrix. \textit{add image to further clarify?} $X$ represents the features of each edge in the graph (i.e. each document/word pair), and would by default be an identity matrix in our application. \\
-This approach can be viewed as a row-column normalization of our data, s.t. $G_{ij} = \frac{\bar{a}_{ij}}{\sqrt{D_{ii}D_{jj}}}$ where $G = \bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}$. This might be problematic for a VAE approach, as  data points (i.e. entries in $\bar{G}$) are no longer i.i.d. Furthermore, the vector $H$ would be of size $N_{d_{batch}} V_{batch}$ which leads to problems: the dimensionality of H would be large, and would even vary with each batch. (\textit{need to elaborate on this!)} \\
-Therefore, we choose to augment $X$ to collapse $H$ over the words. For this, we choose 
-
-\begin{align}
-X = 
-\begin{matrix} 
-I && 0 \\
-0 && B
-\end{matrix}
-\end{align}
-Where $I$ is $N_{d}$ x $N_{d}$ and $B$ is a column vector of length $V$. This way, we essentially normalize each document separately and have an extra input dimension which represents, or contains information on, the length of the document. \\
-
-
-\subsection{Implementation}
-
-We need to perform batch optimization to make this approach scalable. Luckily, we can precompute $R =  \bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}$, s.t. during optimization we only need to compute $H = \text{ReLu}(RW)$ for the first layer of each batch. We
-
-\subsection{Graph Convolutions for SGVB Topic Modelling}
-Describe the limitations our application provides for using graph convolutions.\\
-Describe exactly how we use Graph Convolutions. The rest of the model does not change in comparison to earlier models, e.g. latent variable methods and accompanying objective functions(s).
-
-
-\chapter{Experiments and Results}
-\section{General Experimental Stuff}
-	\textit{Open question: How do we compare to e.g. Deep Exponential families if we don't use the same vocabulary size? Running Experiments with Deep Exponential Families myself is a lot of work and computation time and requires using good hyperparameters. One (mediocre) idea is to estimate the difference in model perplexity as a result of vocabulary reduction with the (theoretical and practical) results obtained by Kobayashi, or train one VAE model on the full vocabulary to obtain a good estimate for the difference. This last option will probably lead to numerical instability problems.}
-	\subsection{Datasets}
-	For all methods, we ran experiments on the KOS and NY Times datasets, freely available at UCI\footnote{https://archive.ics.uci.edu/ml/datasets/Bag+of+Words}. Both datasets contain only words that occur more than ten times in the whole dataset. The KOS dataset contains 3430 documents and has a vocabulary size of 6906. The dataset was split into 3300 training documents and 130 test documents. The NY times dataset consists of 300,000 documents and has a vocabulary size of 102,660 words. For the NY Times dataset, we only use words that occur over 5,000 times in the dataset. This makes training time and model evaluation a lot faster, as both scale approximately linearly with input dimensionality. Leaving out infrequent words only has a minor effect on the perplexity of bag-of-word topic model perplexity, mainly due to Zipf's law (Cite Kobayashi). For this dataset, a test set of 1,000 documents was used.
+\\
+Note that leaving out $\bar{G}^TW_2$ in \ref{highlow} leaves us with the original first layer of our encoder, except with a different TF-IDF-like normalization of our data. While this insight perhaps does not change our model much, it is worth some experiments, which we will detail in Chapter \ref{experiments}   \textit{Write out this normalization and forecast experiments.} 
+\chapter{Experiments and Results}\label{experiments}
+\section{General}
+First we will describe the datasets used, discuss briefly the evaluation metrics reported, as well as describe the general optimization method used in our experiments.
+	\subsection{Datasets}\label{datasets}
+	For all methods, we ran experiments on the KOS and NY Times datasets, freely available at UCI\footnote{https://archive.ics.uci.edu/ml/datasets/Bag+of+Words}. Both datasets contain only words that occur more than ten times in the whole dataset. The KOS dataset contains 3430 documents and has a vocabulary size of 6906. The dataset was split into 3300 training documents and 130 test documents. The NY times dataset consists of 300,000 documents and has a vocabulary size of 102,660 words. For the NY Times dataset, we only use words that occur over 3,000 times in the dataset, which are 5319 unique words. This makes training time and model evaluation a lot faster, as both scale approximately linearly with input dimensionality. \textit{Leaving out infrequent words only has a minor effect on the perplexity of bag-of-word topic model perplexity, mainly due to Zipf's law (Cite Kobayashi).} For this dataset, a test set of 1,000 documents was used.
 	\\
 	\subsection{Evaluation}
 	
@@ -272,7 +302,7 @@ Describe exactly how we use Graph Convolutions. The rest of the model does not c
 	From Hinton: 24.12 \textit{A recipe for choosing the number of hidden units
 		Assuming that the main issue is overfitting rather than the amount of computation at training or
 		test time, estimate how many bits it would take to describe each data-vector if you were using a good
-		model (i.e. estimate the typical negative log2 probability of a datavector under a good model). Then
+		model (i.e. estimate the typical negative log2 probability of a data vector under a good model). Then
 		multiply that estimate by the number of training cases and use a number of parameters that is about
 		an order of magnitude smaller. If you are using a sparsity target that is very small, you may be able
 		to use more hidden units. If the training cases are highly redundant, as they typically will be for very
@@ -286,14 +316,16 @@ Describe exactly how we use Graph Convolutions. The rest of the model does not c
 	Describe choice of number of latent variables, hidden units to start with (200e, 20d). Report lower bound train and test over time, as well as held-out test perplexity. For KOS and for NY Times
 	
 	\subsubsection{Hyperparameter Optimization}
-	For each dataset, we train models with different encoder and decoder structures in order to optimize these. We use 8 and 32 latent variables for the KOS and NY Times datasets, respectively. Many other hyperparameters such as optimization method and details (see \ref{optim_section}), initialization of parameters, and gradual increase of KL Divergence, are chosen based on preliminary experiments. These are all parameters that might influence convergence, but which theoretically do not influence the performance of a converged model. In case of nonlinearity types and choice of prior $p(\mathbf{z}$), we do not vary these because we did not note a significant influence of these choices on model performance in preliminary experiments.\\
-	We report all trained models and their performance in section \ref{....}.
+	\textit{How to motivate parameter chocies for which we do not have saved experimental results, such as gradual KLD increase, initialization and learning rates, reLU's?)}
+	For each dataset, we train models with different encoder and decoder structures in order to optimize these. We use 8 and 32 latent variables for the KOS and NY Times datasets, respectively. We use the whole KOS dataset as detailed in \ref{datasets}, but only use 100,000 NY Times documents for training. Many other hyperparameters such as optimization method and details (see \ref{optim_section}), initialization of parameters, and gradual increase of KL Divergence, are chosen based on preliminary experiments. These are all parameters that might influence convergence, but which theoretically do not influence the performance of a converged model. In case of nonlinearity types and choice of prior $p(\mathbf{z}$), we do not vary these because we did not note a significant influence of these choices on model performance in preliminary experiments.\\
+	We report all trained models and their performance in section \ref{ho}.
 	
 	
 	\subsubsection{Varying the Training Set Size}
-	Vary training set size for NY Times dataset with a good model selected in hyperparameter optimization. Interested mainly in best lower bound and perplexity achieved per model. Can plot these both in one log-log plot. Want to add values to google sheets.
+	To investigate how Vary training set size for NY Times dataset with a good model selected in hyperparameter optimization. Interested mainly in best lower bound and perplexity achieved per model. Can plot these both in one log-log plot. Want to add values to google sheets.
 		
 	\subsection{Stickbreaking Topic VAE}
+	
 	
 	Compare stickbreaking VAE to Gauss latent variables for a successfull model on KOS and NY. Need to know difference in runtime per epoch and number of epochs to compare computation time to convergence.
 	
@@ -301,7 +333,10 @@ Describe exactly how we use Graph Convolutions. The rest of the model does not c
 	\textit{What outcome measure do we really want to know?} 
 	 Might want to run 3 experiments: one with large vocabulary size $V$, one with small $V$, and one with small $V$ with random Projections added to input. 
 	
-	\subsection{GCE Topic VAE}
+	\subsection{Comparison to Other Methods}
+	LDA, DEF
+	
+	\subsection{Word-Document Normalization}
 	
 	\section{Results}
 	
@@ -309,45 +344,37 @@ Describe exactly how we use Graph Convolutions. The rest of the model does not c
 	
 	\subsubsection{A First Model}
 	
-	\subsubsection{Hyperparameter Optimization}
+	\subsubsection{Hyperparameter Optimization}\label{ho}
 	
-	The structures are specified in Figure \ref{HO_KOS} and \ref{HO_NY}. Specify here or in results?
+	Figure \ref{HO_KOS} and \ref{HO_NY} detail the lowerbound of both the train and test sets of the used datasets for converged models with different encoder/decoder structures. We also report the the 50\% held-out perplexity on the test set.\\
+	Note that the encoder typically has many more parameters than the decoder. This if because the encoder is not prone to overfitting. \textit{explain} 
 	
-	
-	\begin{tabular}{l||l|l|}\label{HO_KOS}
-		& HU Encoder & HU Decoder   	\\
+\begin{figure}
+	\begin{tabular}{l l|l l l }\label{HO_NY} 		
+		Encoder & Decoder & LB Train & LB Test & Perplexity  	\\
 		\hline
-		& 			& 			\\
-		\cline{2-3} 
-		One Layer 		& 			& 			\\
-		\cline{2-3}
-		& 			& 			\\
-		\hline	
-		& 			&  			\\
-		\cline{2-3} 
-		One Layer 		& 			& 			\\
-		\cline{2-3}
-		& 			& 			\\
-		\hline
+		400 & -		& -7.354 & -7.378941743 & 1492 \\
+
+		400 & 50	& -7.325 & -7.358300133 & 1478 \\
+
+		1000 & -	& -7.341 & -7.379 & 1513 \\
+	
+		400-200 & -	& -7.345 & -7.375 & 1493 \\
+
+		400-200 & 100	& -7.284 & -7.327 & 1429 \\
+		
+		600-300 & 300	&  &  &  \\
+
+		1000-600-300 & 200	& -7.212 & -7.308 & 1415 \\
+		
+		1000-600-300 & 500	& -7.180 & \color{red}-7.297 & \color{red}1384 \\
+		
+		1000-600-300 & 200-500	& \color{red} -7.161 & -7.324 & 1448 \\
+
 	\end{tabular}
-	
-	
-	\begin{tabular}{l||l|l|}\label{HO_NY}
-		& HU Encoder & HU Decoder   	\\
-		\hline
-		& 			& 			\\
-		\cline{2-3} 
-		One Layer 		& 			& 			\\
-		\cline{2-3}
-		& 			& 			\\
-		\hline	
-		& 			&  			\\
-		\cline{2-3} 
-		One Layer 		& 			& 			\\
-		\cline{2-3}
-		& 			& 			\\
-		\hline
-	\end{tabular}
+\end{figure}	
+
+
 \chapter{Discussion}
 What are advantages/disadvantages of our method(s) compared to existing approaches?\\
 How does our method compare to other methods as far as perplexity goes? Can we understand this?\\

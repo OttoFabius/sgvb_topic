@@ -3,7 +3,6 @@ import cPickle as pickle
 import numpy as np
 import scipy.io
 from scipy.sparse import csc_matrix, csr_matrix, vstack, lil_matrix, vstack, identity, diags
-import time
 import ConfigParser
 import matplotlib.pyplot as plt
 from random import shuffle
@@ -247,7 +246,7 @@ def select_features_n(n_features=8000, dataset='ny'):
     f.close()
 
 def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
-    start = time.time()
+
     print "loading pickled data"
     f = gzip.open('data/'+dataset+'/docword_matrix_' + str(mincount) + '.pklz','rb')
     data_orig = pickle.load(f)
@@ -279,34 +278,6 @@ def select_subset(n_train, n_test=1000, dataset='ny', mincount=3000):
     f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '_' + str(n_train) + 'traindocs.pklz','wb')
     pickle.dump(data_rest, f)
     f.close()
-
-def precompute_GCE(x, x_test, argdict):
-    print "precomputing GCE"
-    n_docs = x.shape[0]
-    print 'x', x.shape
-    V = x.shape[1] 
-    A = lil_matrix((V+n_docs, V+n_docs))
-    A = lil_matrix(A+identity(n_docs+V))
-    print "fill in A"
-    A[:n_docs,n_docs:] = x
-    A[n_docs:,:n_docs] = x.T
-    print 'shape of A:', A.shape
-    print "diag"
-    diagonals = np.squeeze(np.array(lil_matrix.sum(A, axis=1)))
-    D_sqrt = diags(1/np.sqrt(diagonals), (0))
-    G = D_sqrt.dot(A.dot(D_sqrt))
-    print 'shape of D:', G.shape
-    print "f"
-    F = lil_matrix((n_docs+V, 1+V))
-    print 'shape of F:,', F.shape
-    print 'a'
-    F[:n_docs,0]=1
-    F[n_docs:,1:] = identity(V)
-    print 'c'
-    x_prime = G.dot(F)[:n_docs,:]
-    print 'shape of x prime:', x_prime.shape
-    print "done"
-    return x_prime
 
 def create_rp(K=100, dataset = 'kos', mincount=50, orth=False, traindocs=0):
     #memory error for orth = true on server
