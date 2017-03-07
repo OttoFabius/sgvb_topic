@@ -171,6 +171,7 @@ class topic_model:
         unused_sum = T.scalar('unused_sum')
 
         H_lin = th.sparse.dot(self.params['We1'], x) 
+
         if self.rp==1:
             H_lin = T.concatenate([H_lin, rest], axis=0)
         H = relu(H_lin + self.params['be1']) 
