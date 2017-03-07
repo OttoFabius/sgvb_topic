@@ -2,7 +2,6 @@ import numpy as np
 import theano as th
 import theano.tensor as T
 import theano.sparse
-from theano import ProfileMode, pp, printing
 import scipy as sp
 from theano.tensor.shared_randomstreams import RandomStreams
 import matplotlib.pyplot as plt
