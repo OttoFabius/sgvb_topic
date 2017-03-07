@@ -3,6 +3,7 @@ import cPickle as pickle
 import numpy as np
 import scipy.io
 from scipy.sparse import csc_matrix, csr_matrix, vstack, lil_matrix, vstack, identity, diags
+from scipy.sparse.linalg import svds
 import ConfigParser
 import matplotlib.pyplot as plt
 from random import shuffle
@@ -40,7 +41,7 @@ def parse_config(fname):
     argdict['kld_weight'] = config.getfloat('parameters', 'kld_weight')
     argdict['ignore_logvar'] = config.getint('parameters', 'ignore_logvar')
     argdict['seen_words'] = config.getfloat('parameters', 'seen_words')
-
+    argdict['batch_norm'] = config.getint('parameters', 'batch_norm') 
 
     if argdict['dataset_num'] == 0:
         argdict['dataset']='kos'
@@ -167,7 +168,7 @@ def convert_to_sparse(dataset='kos', n_docs_max=3430, min_per_doc=10):
     docs 	= lil_matrix((n_docs_max, voc_size))
     for i, line in enumerate(f):
         ws = line.split()	
-    	if int(ws[0])% 100 == 0:
+    	if int(ws[0])% 1000 == 0:
     		print 'doc nr', int(ws[0])
 
     	if int(ws[0])==n_docs_max:
@@ -306,6 +307,32 @@ def create_rp(K=100, dataset = 'kos', mincount=50, orth=False, traindocs=0):
     print "saving data"
     np.save('data/'+dataset+'/R_' + str(mincount)+'.npy', R)
     np.save('data/'+dataset+'/data_proj_' + str(mincount)+'.npy', data_proj)
+
+def create_svd(K=100, dataset = 'kos', mincount=50, orth=False, traindocs=3300):
+    if traindocs==0:
+        f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '.pklz','rb')
+    else: 
+        f = gzip.open('data/'+dataset+'/docword_rest_matrix_' + str(mincount) + '_' + str(traindocs) + 'traindocs.pklz','rb')
+    data_rest = pickle.load(f)
+    f.close()
+    data = csc_matrix(data_rest)
+
+    N, D = data.shape
+    data_train = data[:traindocs,:]
+
+    print "calculating svd, first train:"
+    u_train, s, vt = svds(data_train, k=K)
+    print u_train
+
+    print "now test:"
+    print data.shape
+    u_total, s, vt = svds(data, k=K)
+    u_test = u_total[traindocs:,:]
+    print data_train.shape, u_total.shape
+
+    print "saving"
+    np.save('data/'+dataset+'/data_train_svd_' + str(mincount)+'.npy', u_train)
+    np.save('data/'+dataset+'/data_test_svd_' + str(mincount)+'.npy', u_test)
 
 def perplexity_rest(data_train, indices_used, data_test):
 

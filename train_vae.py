@@ -29,7 +29,10 @@ if __name__=="__main__":
     if argdict['rp']==1:        
         print 'using random projection of rest in encoder'
         rest = np.load('data/'+argdict['dataset']+'/data_proj_'+str(argdict['minfreq'])+'.npy')
-   
+    elif argdict['rp']==2:    
+        print 'using singular values of rest in encoder'
+        rest_train = np.load('data/'+argdict['dataset']+'/data_train_svd_'+str(argdict['minfreq'])+'.npy')
+        rest_test = np.load('data/'+argdict['dataset']+'/data_test_svd_'+str(argdict['minfreq'])+'.npy')
 
     n_total, empty = x.shape
     n_test = argdict['testset_size']
@@ -57,7 +60,7 @@ if __name__=="__main__":
     if argdict['rp']==1:
         rest_test = rest[:n_test,:]
         rest_train = rest[n_total-n_train:n_total,:]
-    else:
+    elif argdict['rp']==0:
         rest_train = None
         rest_test = None
 
@@ -83,9 +86,6 @@ if __name__=="__main__":
         lowerbound_list, testlowerbound_list, KLD_list, KLD_used_list, recon_train_list, \
                     recon_test_list, perplexity_list, perp_sem_list = ([] for i in range(8))
         epoch = 0
-
-        testlowerbound, recon_test, KLD_test = model.getLowerBound(x_test, dl_test, unused_sum, epoch, rest=rest_test)
-        print 'lb test', testlowerbound
 
         perplexity_est = list()
 

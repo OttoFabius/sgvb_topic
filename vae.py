@@ -33,6 +33,8 @@ class topic_model:
         self.learning_rate = th.shared(argdict['learning_rate'])
         self.batch_size = argdict['batch_size']
         self.rp = argdict['rp']
+        self.batch_norm = argdict['batch_norm']
+        self.sigma_init = argdict['sigmaInit']
         self.full_vocab = argdict['full_vocab']
         self.KLD_weight = argdict['kld_weight']
         self.ignore_logvar = argdict['ignore_logvar']
@@ -69,7 +71,7 @@ class topic_model:
         # --------------    Define model-specific dimensions    --------------------
 
         We1 = th.shared(np.random.normal(0,1,(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
-        be1 = th.shared(np.random.normal(0,1,(argdict['HUe1']+self.k,1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+        be1 = th.shared(np.random.normal(0,1,(argdict['HUe1']+self.k, 1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
 
         if self.HUe2==0:
             H_e_last = argdict['HUe1']
@@ -130,19 +132,26 @@ class topic_model:
         if self.HUd2!=0:
             self.params.update(dict([('Wd3', Wd3), ('bd3', bd3)]))
 
+        if self.batch_norm==1:
+            for key in self.params.keys():
+                if 'We' in key:
+                    self.params[key+'_g'] =  th.shared(np.random.normal(0,self.sigma_init,(self.params[key].get_value().shape[1],1)).astype(th.config.floatX), name=key+'_g',broadcastable=(False,True))
+                    self.params[key+'_b'] =  th.shared(np.random.normal(0,self.sigma_init,(self.params[key].get_value().shape[1],1)).astype(th.config.floatX), name=key+'_b',broadcastable=(False,True))
+                self.params['Wd1_g'] =  th.shared(np.random.normal(0,self.sigma_init,(self.HUd1,1)).astype(th.config.floatX), name=key+'_g',broadcastable=(False,True))
+                self.params['Wd1_b'] =  th.shared(np.random.normal(0,self.sigma_init,(self.HUd1,1)).astype(th.config.floatX), name=key+'_b',broadcastable=(False,True))
+         
+        # if self.stickbreak==1:
+        #     self.params_qnn = dict()
+        #     names_qnn = pickle.load(open("qnn_names.pkl", "rb"))
+        #     params_qnn = pickle.load(open("qnn_params.pkl", "rb"))
 
-        if self.stickbreak==1:
-            self.params_qnn = dict()
-            names_qnn = pickle.load(open("qnn_names.pkl", "rb"))
-            params_qnn = pickle.load(open("qnn_params.pkl", "rb"))
-
-            for name, param in zip(names_qnn,params_qnn): 
-                self.params_qnn[name] = param
+            # for name, param in zip(names_qnn,params_qnn): 
+            #     self.params_qnn[name] = param
 
         for key, value in self.params.items():
 
-        # Init m and v for adam, and TODO: init gamma and beta for batch normalization for each layer
-            if 'b' in key:
+        # Init m and v for adam. Handles broadcastable biases and batch normalization parameters differently.
+            if 'b' in key or 'g' in key:
                 self.m[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='m_' + key, broadcastable=(False,True))
                 self.v[key] = th.shared(np.zeros_like(value.get_value()).astype(th.config.floatX), name='v_' + key, broadcastable=(False,True))
             else:
@@ -152,36 +161,44 @@ class topic_model:
         self.createGradientFunctions()
 
     def createGradientFunctions(self):
+        srng = T.shared_randomstreams.RandomStreams()
 
         x       = th.sparse.csc_matrix(name='x', dtype=th.config.floatX)
         x_test  = th.sparse.csc_matrix(name='x_test', dtype=th.config.floatX)
-
         dl = T.dvector(name='dl')
         rest = T.matrix(name='rest')
         epoch = T.iscalar('epoch')
         unused_sum = T.scalar('unused_sum')
 
-        srng = T.shared_randomstreams.RandomStreams()
         H_lin = th.sparse.dot(self.params['We1'], x) 
-        if self.rp==0:
-            H_lin = H_lin+self.params['be1']
-        elif self.rp==1:
+        if self.rp==1:
             H_lin = T.concatenate([H_lin, rest], axis=0)
-            H_lin =  H_lin + self.params['be1'] 
+        H = relu(H_lin + self.params['be1']) 
 
-        H = relu(H_lin)
+
+        if self.batch_norm==1: #only works for at least two encoder layers
+            H = self.calc_batch_norm(H, self.params['We2_g'], self.params['We2_b'])
 
         if self.HUe2!=0:
-            H2_lin = T.dot(self.params['We2'], H) + self.params['be2']
-            H = relu(H2_lin)
+            H = relu(T.dot(self.params['We2'], H) + self.params['be2'])
+            if self.batch_norm==1:
+                if self.HUe3!=0:
+                    H = self.calc_batch_norm(H, self.params['We3_g'], self.params['We3_b'])
+                else:
+                    H = self.calc_batch_norm(H, self.params['We_mu_g'], self.params['We_mu_b'])
+
+
+
         if self.HUe3!=0:
-            H3_lin = T.dot(self.params['We3'], H) + self.params['be3']
+            if self.batch_norm==1:
+                H = self.calc_batch_norm(H, self.params['We_mu_g'], self.params['We_mu_b'])
+            H = T.dot(self.params['We3'], H) + self.params['be3']
             H = relu(H3_lin) 
 
-
-        KLD_factor = T.maximum(0, T.minimum(1, (epoch-self.KLD_free)/self.KLD_burnin))
-
         if self.stickbreak==0:
+            # if self.batch_norm==1:
+            #     mu = self.calc_batch_norm(mu, self.params['We_mu_g'], self.params['We_mu_b'])
+            #     logvar = self.calc_batch_norm(logvar, self.params['We_var_g'], self.params['We_var_b'])
             mu  = T.dot(self.params['We_mu'], H)  + self.params['be_mu']
             logvar = T.dot(self.params['We_var'], H) + self.params['be_var']
             logvar = cap_logvar(logvar, self.logvar_cap)
@@ -215,9 +232,9 @@ class topic_model:
 
             z, new_sl_used = out
             KLD = self.kld_kum(a, b)
-            KLD *= self.KLD_weight
-            #################################################################################### 
-
+        
+        KLD *= self.KLD_weight
+        KLD_factor = T.maximum(0, T.minimum(1, (epoch-self.KLD_free)/self.KLD_burnin))
         KLD_train = KLD*KLD_factor
 
         if self.HUd1==0:
@@ -225,6 +242,9 @@ class topic_model:
         elif self.HUd1!=0:  
             H_d_lin = T.dot(self.params['Wd1'], z)  + self.params['bd1']
             H_d = relu(H_d_lin)
+            if self.batch_norm==1: 
+                H_d = self.calc_batch_norm(H_d, self.params['Wd1_g'], self.params['Wd1_b'])
+
             if self.HUd2==0:
                 y_notnorm = T.exp(T.dot(self.params['Wd2'], H_d)  + self.params['bd2'])
             elif self.HUd2!=0:
@@ -243,6 +263,9 @@ class topic_model:
 
         lowerbound_train = recon_err - KLD_train
         lowerbound = recon_err - KLD
+        for key in self.params:
+            lowerbound_train += T.sum(self.params[key])*0
+        
         perplexity = th.sparse.sp_sum(th.sparse.basic.mul(x_test,logy))
 
         gradients = T.grad(lowerbound_train, self.params.values())
@@ -261,9 +284,9 @@ class topic_model:
             new_v = self.b2 * (gradient**2) + (1 - self.b2) * v            
 
             updates[parameter] = parameter + self.learning_rate * gamma * new_m / (T.sqrt(new_v + 1e-10))
-            if 'Wd' in str(parameter):
-                # MAP on weights (same as L2 regularization)
-                updates[parameter] -= self.learning_rate * self.lam * (parameter * np.float32(self.batch_size / self.N))
+            # if 'Wd' in str(parameter):
+            #     # MAP on weights (same as L2 regularization)
+            #     updates[parameter] -= self.learning_rate * self.lam * (parameter * np.float32(self.batch_size / self.N))
             
             updates[m] = new_m
             updates[v] = new_v
@@ -293,6 +316,12 @@ class topic_model:
         KLD = T.sum(KLD)
 
         return KLD
+
+    def calc_batch_norm(self, x, gamma, beta):
+        mu = T.sum(x, axis=1)/self.batch_size
+        var = (x - mu)**2/self.batch_size
+        xbar = (x - mu)/(var+1e-10)
+        return x * gamma + beta
 
     def iterate(self, X, dl, unused_sum, epoch, rest=None):
         """Main method, slices data in minibatches and performs a training epoch. """
