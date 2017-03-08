@@ -190,10 +190,9 @@ class topic_model:
 
 
         if self.HUe3!=0:
+            H = relu(T.dot(self.params['We3'], H) + self.params['be3'])
             if self.batch_norm==1:
                 H = self.calc_batch_norm(H, self.params['We_mu_g'], self.params['We_mu_b'])
-            H = relu(T.dot(self.params['We3'], H) + self.params['be3'])
-
         if self.stickbreak==0:
             # if self.batch_norm==1:
             #     mu = self.calc_batch_norm(mu, self.params['We_mu_g'], self.params['We_mu_b'])
