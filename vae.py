@@ -12,7 +12,7 @@ from scipy.special import gammaln
 from helpfuncs import select_half
 
 def psi(x):
-    "fifith order Euler-Maclaurin formula of psi function as gradient is not supported by theano"
+    "fifth order Euler-Maclaurin formula of psi function as gradient is not supported by theano"
     return T.log(x) - 1/(2*x) - 1/(12*x**2) + 1/(120*x**4) - 1/(256*x**6)
 
 def beta_func(x,y):
@@ -192,8 +192,7 @@ class topic_model:
         if self.HUe3!=0:
             if self.batch_norm==1:
                 H = self.calc_batch_norm(H, self.params['We_mu_g'], self.params['We_mu_b'])
-            H = T.dot(self.params['We3'], H) + self.params['be3']
-            H = relu(H3_lin) 
+            H = relu(T.dot(self.params['We3'], H) + self.params['be3'])
 
         if self.stickbreak==0:
             # if self.batch_norm==1:
