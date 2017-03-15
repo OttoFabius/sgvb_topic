@@ -229,7 +229,7 @@ class topic_model:
                                   )
 
             z, new_sl_used = out
-            KLD, KLD_batch = self.kld_kum(a, b)
+            KLD = self.kld_kum(a, b)
 
         KLD = self.KLD_weight * KLD
         KLD_factor = T.maximum(0, T.minimum(1, (epoch-self.KLD_free)/self.KLD_burnin))
@@ -291,7 +291,7 @@ class topic_model:
 
         
         self.update      =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')#, mode=profmode)
-        self.lowerbound  =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, a, b, v, z, KLD_batch], on_unused_input='ignore')
+        self.lowerbound  =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
         self.perplexity  =  th.function([x, x_test, unused_sum, rest]     , perplexity, on_unused_input='ignore')
 
     def kld_kum(self, a, b):
@@ -310,7 +310,6 @@ class topic_model:
         KLD += T.log(a*b) 
         KLD += T.log(beta_func(self.prior_alpha, self.prior_beta))
         KLD += -(b-1)/(b)
-        KLD_batch = KLD
 
         KLD = T.sum(KLD, axis=0)
         KLD = T.sum(KLD)
@@ -372,7 +371,7 @@ class topic_model:
                 dl_batch = dl[batches[i]:batches[i+1]]
                 if type(rest)==np.ndarray:
                     rest_batch = rest[batches[i]:batches[i+1]].T
-                lb_batch, recon_batch, KLD_batch, a, b, v, z, KLD_matrix = self.lowerbound(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
+                lb_batch, recon_batch, KLD_batch = self.lowerbound(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
             else:
                 lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(             
             lowerbound += lb_batch
