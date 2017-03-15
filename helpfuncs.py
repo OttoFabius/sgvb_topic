@@ -42,6 +42,7 @@ def parse_config(fname):
     argdict['ignore_logvar'] = config.getint('parameters', 'ignore_logvar')
     argdict['seen_words'] = config.getfloat('parameters', 'seen_words')
     argdict['batch_norm'] = config.getint('parameters', 'batch_norm') 
+    argdict['alpha'] = config.getint('parameters', 'alpha')
 
     if argdict['dataset_num'] == 0:
         argdict['dataset']='kos'

@@ -12,11 +12,11 @@ from scipy.special import gammaln
 from helpfuncs import select_half
 
 def psi(x):
-    "fifth order Euler-Maclaurin formula of psi function as gradient is not supported by theano"
-    return T.log(x) - 1/(2*x) - 1/(12*x**2) + 1/(120*x**4) - 1/(256*x**6)
+    "3rd order Euler-Maclaurin formula of psi function as gradient is not supported by theano"
+    return T.log(x) - 1/(2*x) - 1/(12*x**2)
 
 def beta_func(x,y):
-    return (T.gamma(x)*T.gamma(y))/T.gamma(x+y)
+    return (T.gamma(x)*T.gamma(y))/(T.gamma(x+y))
 
 def relu(x, alpha=0.01):
     return T.switch(x > 0, x, alpha * x) #leaky relu in 1-layer encoder for stability
@@ -42,7 +42,7 @@ class topic_model:
         self.lam = 0.
         self.N = argdict['trainset_size']
         self.prior_alpha = 1. #creates dirichlet process prior
-        self.prior_beta = 1. #concentration parameter alpha0
+        self.prior_beta = float(argdict['alpha']) #concentration parameter alpha0
 
         #structure
         self.dimZ = argdict['dimZ']
@@ -89,7 +89,7 @@ class topic_model:
                 H_e_last = argdict['HUe3']
 
                 
-        We_mu = th.shared(np.random.normal(0,0.01/np.sqrt(float(H_e_last)),(self.dimZ,H_e_last)).astype(th.config.floatX), name = 'We_mu')
+        We_mu = th.shared(np.random.normal(0,0.01/np.sqrt(float(H_e_last)),(self.dimZ, H_e_last)).astype(th.config.floatX), name = 'We_mu')
         be_mu = th.shared(np.zeros((self.dimZ,1)).astype(th.config.floatX), name = 'be_mu', broadcastable=(False,True))
 
         We_var = th.shared(np.random.normal(0,0.01/np.sqrt(float(H_e_last)),(self.dimZ, H_e_last)).astype(th.config.floatX), name = 'We_var')
@@ -98,10 +98,10 @@ class topic_model:
 
         
         if self.HUd1==0:
-            Wd1 = th.shared(np.random.normal(0,0.01/np.sqrt(self.dimZ),(self.voc_size, self.dimZ)).astype(th.config.floatX), name = 'Wd1')
+            Wd1 = th.shared(np.random.normal(0,0.01/np.sqrt(self.dimZ),(self.voc_size, self.dimZ+self.stickbreak)).astype(th.config.floatX), name = 'Wd1')
             bd1 = th.shared(np.zeros((self.voc_size,1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
         elif self.HUd1!=0:        
-            Wd1 = th.shared(np.random.normal(0,0.01/np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ)).astype(th.config.floatX), name = 'Wd1')
+            Wd1 = th.shared(np.random.normal(0,0.01/np.sqrt(self.dimZ),(argdict['HUd1'], self.dimZ+self.stickbreak)).astype(th.config.floatX), name = 'Wd1')
             bd1 = th.shared(np.zeros((argdict['HUd1'],1)).astype(th.config.floatX), name = 'bd1', broadcastable=(False,True))
 
             Wd2 = th.shared(np.random.normal(0,0.01/np.sqrt(float(argdict['HUd1'])),(self.voc_size, argdict['HUd1'])).astype(th.config.floatX), name = 'Wd2')
@@ -215,7 +215,7 @@ class topic_model:
             eps = srng.uniform(size=(self.dimZ, self.batch_size), low=0.01, high=0.99, dtype=theano.config.floatX) 
 
             v = (1 - eps**(1/b))**(1/a)
-            T.concatenate([v, self.v_last]) #Truncation. NB this makes one more latent dimension. 
+            v = T.concatenate([v, self.v_last]) #Truncation. NB this makes one more latent dimension. 
 
             # Stick-breaking
             def stickbreak(v, z_prev, sl_used):
@@ -229,9 +229,9 @@ class topic_model:
                                   )
 
             z, new_sl_used = out
-            KLD = self.kld_kum(a, b)
-        
-        KLD *= self.KLD_weight
+            KLD, KLD_batch = self.kld_kum(a, b)
+
+        KLD = self.KLD_weight * KLD
         KLD_factor = T.maximum(0, T.minimum(1, (epoch-self.KLD_free)/self.KLD_burnin))
         KLD_train = KLD*KLD_factor
 
@@ -291,34 +291,36 @@ class topic_model:
 
         
         self.update      =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')#, mode=profmode)
-        self.lowerbound  =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
+        self.lowerbound  =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, a, b, v, z, KLD_batch], on_unused_input='ignore')
         self.perplexity  =  th.function([x, x_test, unused_sum, rest]     , perplexity, on_unused_input='ignore')
 
     def kld_kum(self, a, b):
-        KLD =  (1./(1+a*b))*beta_func(1./a, b)    
-        KLD += (1./(2+a*b))*beta_func(2./a, b)                              
-        KLD += (1./(3+a*b))*beta_func(3./a, b) 
-        KLD += (1./(4+a*b))*beta_func(4./a, b) 
-        KLD += (1./(5+a*b))*beta_func(5./a, b) 
-        KLD += (1./(6+a*b))*beta_func(6./a, b) 
-        KLD += (1./(7+a*b))*beta_func(7./a, b) 
-        KLD += (1./(8+a*b))*beta_func(8./a, b) 
-        KLD += (1./(9+a*b))*beta_func(9./a, b)
+        KLD =  (1./(1.+a*b))*beta_func(1./a, b)    
+        KLD += (1./(2.+a*b))*beta_func(2./a, b)                              
+        KLD += (1./(3.+a*b))*beta_func(3./a, b) 
+        KLD += (1./(4.+a*b))*beta_func(4./a, b) 
+        KLD += (1./(5.+a*b))*beta_func(5./a, b) 
+        KLD += (1./(6.+a*b))*beta_func(6./a, b) 
+        KLD += (1./(7.+a*b))*beta_func(7./a, b) 
+        KLD += (1./(8.+a*b))*beta_func(8./a, b) 
+        KLD += (1./(9.+a*b))*beta_func(9./a, b)
         KLD *= (self.prior_beta-1)*b
 
         KLD += ((a - self.prior_alpha)/a) * (-0.57721 - psi(b)- 1/b)
-        KLD += T.log(a*b+1e-5) + T.log(beta_func(self.prior_alpha, self.prior_beta)+1e-5)
-        KLD += -(b-1)/(b+1e-5)
+        KLD += T.log(a*b) 
+        KLD += T.log(beta_func(self.prior_alpha, self.prior_beta))
+        KLD += -(b-1)/(b)
+        KLD_batch = KLD
 
         KLD = T.sum(KLD, axis=0)
         KLD = T.sum(KLD)
 
-        return KLD
+        return KLD, KLD_batch
 
     def calc_batch_norm(self, x, gamma, beta):
         mu = T.sum(x, axis=1)/self.batch_size
         var = (x - mu)**2/self.batch_size
-        xbar = (x - mu)/(var+1e-10)
+        xbar = (x - mu)/(var+1e-5)
         return x * gamma + beta
 
     def iterate(self, X, dl, unused_sum, epoch, rest=None):
@@ -370,14 +372,18 @@ class topic_model:
                 dl_batch = dl[batches[i]:batches[i+1]]
                 if type(rest)==np.ndarray:
                     rest_batch = rest[batches[i]:batches[i+1]].T
-                lb_batch, recon_batch, KLD_batch = self.lowerbound(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
+                lb_batch, recon_batch, KLD_batch, a, b, v, z, KLD_matrix = self.lowerbound(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
             else:
-                lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(
-                                          
+                lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(             
             lowerbound += lb_batch
             recon_err += recon_batch
             KLD += KLD_batch
-
+            # print 'a', a
+            # print 'b', b
+            # print 'v', v
+            # print 'z', z
+            # print 'kl', KLD_batch            
+            # raw_input()
         return lowerbound/np.sum(dl), recon_err/np.sum(dl), KLD/np.sum(dl)
 
     def calc_perplexity(self, argdict, data, unused_sum, rest=None):
