@@ -10,10 +10,13 @@
 
 \author{Otto Fabius}
 \title{SGVB Topic Modeling}
+\newcommand{\specialcell}[2][c]{%
+	\begin{tabular}[#1]{@{}l@{}}#2\end{tabular}}
 \begin{document}
 \large
 \doublespacing
 \maketitle
+
 \begin{abstract}
 	content...
 \end{abstract}
@@ -98,20 +101,23 @@ Notes:\\
 - General purpose introduction of sgvb . \\
 
 - areas of success of sgvb.
+\subsection{Neural Variational Inference for Topic Models}
 
 \section{Stick-Breaking VAE}\label{sbvae_section}
 	As detailed in \ref{sgvb_section}, one restriction of SGVB in general is the need for a differentiable, non-centered parametrization of the latent variables. Therefore, e.g. Beta distributed latent variables (as used in e.g. LDA \cite{bleil2003latent}), can not be used in the SGVB framework. \\ Nalisnyck \& Smith extend SGVB to Stick-breaking priors by using the Kumaraswami Distribution as the approximate posterior. The rest of this section \ref{sbvae_section} is not much more than a description of the relevant part of Nalisnyck \& Smyth \cite{nalisnick2016deep}.
-\subsection{Stick-breaking Priors}
-\subsection{Kumaraswami Distribution} 
-\subsection{SGVB with Stick-Breaking Priors}
+	
+	
+	\subsection{The Stick-Breaking Process}\label{sb_process}
+	
+	\subsection{The Kumaraswami Distribution}\label{kum}
+	
 
 \section{Graph Convolutional Networks}\label{GCN_section}
-Note that this is only relevant for one of our models. Describe Kipf and Welling paper.
+Keep it brief and explain only the relevant stuff of Kipf and Welling for the section in models. 
 \chapter{SGVB Topic Models}
-\section{Introduction}
-In this Chapter, we present in detail the models we use in our experiments. 
+In this Chapter, we present in detail the models and methods we use in our experiments. 
 
-\section{Topic VAE}
+\section{Topic VAE}\label{TopicVAE}
 
 In this section we describe our initial approach for topic modeling with SGVB. It does not deviate conceptually from the VAE model used in the experiments by Kingma and Welling\cite{kingma2013auto}, so one might call this a Topic VAE. We will describe the application-specific choices made within the general SGVB framework as described in section \ref{sgvb_section}, and derive the objective function used for optimization. 
 
@@ -123,8 +129,7 @@ Within the general SGVB framework described in the previous chapter, we specify 
 	\item The representation of our documents $\mathbf{X}$
 	\item The encoder $q(\mathbf{z}|\mathbf{x})$
 	\item $p(z)$, a prior  over the latent variables
-	\item The transformation function $g_\phi(\boldsymbol{\epsilon},\mathbf{x})$
-	\item The  probability distribution  $p(\mathbf{\epsilon})$ from which to draw $\epsilon \sim p(\epsilon)$
+	\item A differentiable way of sampling $\mathbf{z}$ from $p(\mathbf{z}|\mathbf{x})$. 
 	\item The decoder $p(\mathbf{x}|\mathbf{z})$
 \end{enumerate}
 
@@ -132,13 +137,13 @@ The representation of the documents is a normalized Bag-of-Words representation 
 \\
 The encoder $q(\mathbf{z}|\mathbf{x})$ is a fully connected neural network with one or more hidden layers with ReLu activation functions. The input is $\mathbf{d}$ and the output is the mean and log standard deviation \{$\boldsymbol{\mu}, \log \boldsymbol{\sigma} ^2\}$ of the Multivariate Gaussian $N(\boldsymbol{\mu}, \boldsymbol{\sigma} ^2\textbf{I})$. For one hidden layer this would be the following function:
 \begin{align}
-\mathbf{h_{e1}} = \text{ReLu}(\mathbf{\hat{x}}\mathbf{W_{e1}} + \mathbf{b}) \\
-\boldsymbol{\mu} = \mathbf{h_{e1}W}_{\mu} \\
-\log \boldsymbol{\sigma}^2 = \mathbf{h_{e1}W}_{\sigma}
+\mathbf{h_{e1}} = \text{ReLu}(\mathbf{\hat{x}}\mathbf{W_{e1}} + \mathbf{b}) \label{he1}\\
+\boldsymbol{\mu} = \mathbf{h_{e1}W}_{\mu} \label{vae_encoding_mu} \\
+\log \boldsymbol{\sigma}^2 = \mathbf{h_{e1}W}_{\sigma} \label{vae_encoding_sig}
 \end{align} 
-We use prior $p(z) = N(0,\textbf{I})$
+We use prior $p(\mathbf{z}) = N(0,\textbf{I})$
 \\
-Our encoder and prior are identical to the experiments in \cite{kingma2013auto}, and so ar our transformation function $g_\phi(\boldsymbol{\epsilon},\mathbf{x}) = \boldsymbol{\mu} + \boldsymbol{\sigma}^2\odot \boldsymbol{\epsilon}$, and sampling function $p(\epsilon) = N(0,\textbf{I})$. Note that throughout this work we consistently only use one sample $\epsilon$ for each latent representation $\mathbf{z}$, and we therefore do not use an index for this.\\
+Our encoder and prior are identical to the experiments in \cite{kingma2013auto}, and so is our (differentiable) sampling method: we use transformation function $g_\phi(\boldsymbol{\epsilon},\mathbf{x}) = \boldsymbol{\mu} + \boldsymbol{\sigma}^2\odot \boldsymbol{\epsilon}$, and sampling function $p(\epsilon) = N(0,\textbf{I})$. Note that throughout this work we consistently only use one sample $\epsilon$ for each latent representation $\mathbf{z}$, and we therefore do not use an index for this.\\
 The decoder $p(\mathbf{x}|\mathbf{z})$ is also a neural network with as input (a sample from) latent representation $\mathbf{z}$ and as output the probabilities of a Multinomial distribution, with a ReLu activation function used in each hidden layer. With one hidden layer, this would specified by:
 
 \begin{align}
@@ -160,7 +165,7 @@ The general form of the SGVB estimator is:
 
 And because we consistently only use one sample from $p(\boldsymbol{\epsilon})$ per data point, this simplifies to:
 
-\begin{align}
+\begin{align}\label{lb_summary}
 \tilde{\mathcal{L}}(\boldsymbol{\theta}, \boldsymbol{\phi}, \mathbf{x_i}) = -D_{KL}(q_\phi (\mathbf{z}|\mathbf{x}_i)||p(_\theta(\mathbf{z}))  + \log p_\theta(\mathbf{x}_i|\mathbf{z}_i)
 \end{align}
 
@@ -180,25 +185,26 @@ We cannot compare this lower bound estimate in \ref{perwordLBest} nor the one in
 
 
 \section{Stick Breaking Topic VAE}
- as described in this thesis, is that it assumes the latent variables are (approximately) normally distributed. For some datasets, it might be hard to encode data points in multiple independent normally distributed variables. LDA, with it's binary latent variables, has a much more discriminative distribution (the Beta Distribution) over latent variables non-centered distribution, such as in many binary latent variable models (e.g. LDA) might be might be more discriminative. As we have sparse data where data points (i.e. documents) frequently can be described by only a few of the used latent variables (roughly corresponding to topics), this seems particularly applicable to our application.  \\
-Therefore, we also investigate the use of a Stick-Breaking VAE (Nalisnyck \& Smith \cite{Nalisnick2016deep}) for Topic Modelling\\
-For $a = 1$ or $b = 1$, Kumaraswami equals Beta.
+Where other popular topic models such as LDA and Deep Exponential Families \textit{(refs)} have binary latent variables, the VAE approach described in section \ref{TopicVAE} has continuous latent variables. These are, as typically done, assumed to be independent and normally distributed. Using Beta distributed latent variables in a SGVB approach is not possible because, as explained in \ref{sbvae_section}, but we can use a stick-breaking VAE for topic modeling in a similar manner to the topic VAE in \ref{TopicVAE}. This approach seems particularly relevant for a Topic VAE \textit{explain why: sparsity of data? discriminative? Or just because LDA DEF?}. \\
+As in section \ref{TopicVAE}, we will first describe the model specifics and then explain the resulting objective function.
+\subsection{Model Specifics}
+Once again, for a fully specified model, we need to define:
+\begin{enumerate}
+	\item The representation of our documents $\mathbf{X}$ remains unchanged.
+	\item The encoder $q(\mathbf{z}|\mathbf{x})$ now encodes the parameters $\{\mathbf{a}, \mathbf{b}\}$ of a Kumaraswami distributions instead of $\boldsymbol{\mu}$ and $\boldsymbol{\sigma^2}$ of univariate Gaussians (see \ref{vae_encoding_mu} and \ref{vae_encoding_sig})
+	\item $p(\mathbf{z})$, a prior  over the latent variables. This prior is now generated with the stick-breaking process described in \ref{sb_process}. Note that in order to do this, we much choose a Dirichlet prior $\alpha_0$. \textit{explain why and how this is a Dirichlet prior, see 2.2 of sbvae paper}
+	\item A differentiable way of sampling $\mathbf{z}$ from $p(\mathbf{z}|\mathbf{x})$. As detailed in \ref{kum}, we can do this by sampling from the inverse CDF of the Kumaraswami distribution: $\mathbf{x} = (1-\boldsymbol{\epsilon}^{\frac{1}{\mathbf{b}}})^{\frac{1}{\mathbf{a}}}$, where $\boldsymbol{\epsilon} \sim \text{Uniform}(0,1)$
+	\item The decoder $p(\mathbf{x}|\mathbf{z})$. This remains unchanged te decoder described in section \ref{TopicVAE}.
+\end{enumerate}
 
-\subsection{Stick Breaking Priors}
-
-For now, see SVBAE 4.1
-
-\subsection{Reparametrization}
-
-\subsection{KL Divergence}
-
-We need the KL divergence between the Kumaraswami posterior and the Dirichlet prior:
+\subsection{Objective Function}
+As $ p_\theta(\mathbf{x_i}|\mathbf{z_i})$ (see equation \ref{lb_summary}) is once again modeled as a Multinomial, that part  remains unchanged. The KL Divergence $D_{KL}(q_\phi (\mathbf{z}|\mathbf{x}_i)||p(_\theta(\mathbf{z}))$ is now the KL divergence between the Dirichlet stick-breaking prior distribution and the Kumaraswami posterior distribution:
 
 \begin{align}
 KL(q(\mathbf{\mathbf{\pi}_i}|\mathbf{x}_i)||p(\mathbf{\pi}_i;\alpha_0)) = \sum_{k=1}^{K}\mathbb{E}_q [\log q(v_{i,k})] - \mathbb{E}_q \log p(v_{i,k})]
 \end{align}
 
-Truncating the infinite-dimensional distribution (sti8ck breaking process) by setting $\pi_i,K$ to s.t. $\sum_{k=1}^{K}\pi_{i,k} = 1$, the KL divergence can be written as:
+Truncating the infinite-dimensional distribution (stick-breaking process) by setting $\pi_i,K$ to s.t. $\sum_{k=1}^{K}\pi_{i,k} = 1$, the KL divergence can be written as:
 
 \begin{align*}
 \sum_{k=1}^{K}\mathbb{E}_q [\log q(v_{i,k})] - \mathbb{E}_q \log p(v_{i,k})] = \frac{a_0 -\alpha}{a_0}(-e-\Psi(b_\phi-\frac{1}{b_\phi}))+ \log(a_\phi b_\phi) + \log B(\alpha, \beta) \\
@@ -209,16 +215,51 @@ Truncating the infinite-dimensional distribution (sti8ck breaking process) by se
 (is the Digamma function differentiable? If so, how to implement? Currently 2nd order taylor which works fine)\\
 
 where $e$ is Euler’s constant, $\Psi(\cdot)$ is the Digamma function, and $B(\cdot)$ is the Beta function.
-The infinite sum, which originates from a Taylor appriximation, can be approximated well by the first 2 or 3 terms. When $\beta$ is one, as when using a weighted sum of Beta distributed latent variables for a Dirichlet distribution, this last term vanishes. For a full derivation see Nalisnyck and Smith, SB-VAE.
+The infinite sum, which originates from a Taylor appriximation, can be approximated well by the first 2 or 3 terms. When $\beta$ is one, as when using a weighted sum of Beta distributed latent variables for a Dirichlet distribution, this last term vanishes. For a full derivation see Nalisnyck and Smith, SB-VAE.\\
 
 
+\section{Dealing with large vocabulary sizes}
+One problem of using a VAE approach to topic modeling is the large dimensionality of large corpora. So far, we handle this by discarding the infrequent words in the dataset. \textit{where do we talk about this? refer, or talk about it here!}  In this section we discuss approaches to include this discarded information in our VAE approach in a feasible, scalable manner.\\
+The main idea is to project this very sparse data linearly onto a smaller subspace, retaining as much information as possible. Suppose we select from dataset $\mathbf{X}$ a subset of frequent words $\mathbf{X}_{fr}$ to use in the VAE approach described in section \ref{TopicVAE}. Instead of discarding the infrequent words $\mathbf{X}^{if}$, we use a lower dimensional representation of $\mathbf{X}^{if}$ concatenated with $\mathbf{X}^{fr}$. This way, the first layer of the encoder (equation \ref{he1} in chapter \ref{TopicVAE}) becomes:
+\begin{align}
+\mathbf{h_{e1}} = \text{ReLu}(\left(\begin{matrix}
+\mathbf{\hat{x}} &
+\mathbf{x}^{ld}
+\end{matrix}\right)\mathbf{W_{e1}} + \mathbf{b}) \label{he1_RP}
+\end{align}
+Where $\mathbf{x}^{ld}$ is the lower dimensional representation of the sparse words in a document.
+It is important to note that we do not attempt to model projected data $\mathbf{X}^{ld}$ explicitly in $p(x|z)$  as its probability distribution has now changed.  It therefore merely provides the encoder with additional information. In this work, we investigate two ways of achieving such a lower dimensional representation. 
 
-\section{Random Projections}
-Idea: use a random projection of all scarce words in the dataset as extra information for the encoder. This hardly adds computational complexity, but might still improve inference.
 
+\textit{explain why: computationally costly mainly in reconstruction because dense and instable in $\log p(x|z)$}.
+\textit{(do we want an info-graphic on this? Or maybe just state how many words we leave out in de datasets section?)}
+
+\subsection{Random Projection}\label{RP}
+One effective way of achieving such a lower dimensional representation of sparse data is by means of a Random Projection, a method often useful for dimensionality in the context of text (see e.g. \cite{bingham2001random} for a comparison to other dimensionality reduction methods). The method is based on the Johnson-Lindenstrauss lemma \cite{frankl1988johnson}, which states that a linear mapping of a large set of high-dimensional vectors to a much lower dimensionality can approximately preserve distances between vectors. A linear mapping of $N$ sparse vectors of dimension $D$ onto a $K$-dimensional space is done by multiplication of the projection matrix $\mathbf{R}_{D\text{x}K}$:
+
+\begin{align}
+\mathbf{X}^{ld} = \mathbf{X}_{N\text{x}K} = \mathbf{R}_{D\text{x}K}\mathbf{X}_{N\text{x}D}
+\end{align}
+
+ For the Johnson-Lendenstrauss lemma to hold, the matrix $R$ must be orthogonal. However, a results by Hecht-Nielsen \cite{hecht1994context} states that vectors in high-dimensional spaces are very likely to be close to orthogonal. Often Gaussian distributed random matrices are used, and Bingham  and Mannila \cite{bingham2001random} show experimentally that a high-dimensional random matrix with Gaussian distributed values is close to orthogonal. \\
+In this work we shall therefore restrict ourselves to a matrix with entries drawn from $N(0,\sigma^2)$. For efficient optimization, it is best that the entries in $\mathbf{X}^{ld}$ are in approximately the same range as $H_{e1}$ (see equation \ref{he1}). Therefore we choose $\sigma$ = $\frac{0.5}{\sqrt{\bar{n}}}$, where $\bar{n}$ is the average document length in the dataset. 
+
+Data $\mathbf{X}_{N\text{x}D}$ is a sparse matrix, to be projected onto $K$-dimensional space through $\mathbf{X}_{N\text{x}K} = \mathbf{R}_{D\text{x}K}\mathbf{X}_{N\text{x}D}$
+
+The $K$ columns of $\mathbf{R}_{D\text{x}K}$ are generally of unit length, and it helps if the are orthonormal, which for our application is of negligible computational cost to do. If we normalize each document s.t. the inputs represent probabilities, we can initialize the weights $R$ and $W_1$ with $N(0,1)$, s.t. each hidden unit will receive input distributed as $N(0,1)$. 
+
+\subsection{Singular Value Decomposition}\label{SVD}
+The second method of obtaining a lower dimensional representation of infrequent words $\mathbf{X}^{if}$ is by Singular Value Decomposition:
+
+\begin{align}
+\mathbf{X}^{if} = \mathbf{U\Sigma V}
+\end{align}
+
+We then use $K$ left-singular vectors with the highest singular values as $\mathbf{X}^{ld}$. We then once again use each row of $\mathbf{X}^{ld}$ as in equation \ref{he1_RP}.
+\textit{perhaps a brief discussion of advatnages/disadvantages of RP compared to SVD?}
 \section{Graph Convolutions for Topic VAE}
 
-Bag-of-words data can be seen as a bi-partite graph between document nodes and word nodes (add image of this graph?). From this perspective, it makes sense to look into incorporating the work by Kipf \& Welling on Graph Convolutional Networks in our approach. \\
+Bag-of-words data can be seen as a bipartite graph between document nodes and word nodes (add image of this graph?). From this perspective, it makes sense to look into incorporating the work by Kipf \& Welling on Graph Convolutional Networks in our approach. \\
 As detailed in \ref{GCN_section}, the first layer of a GCN is given by:
 \begin{align}\label{GCE_layer}
 H = \text{ReLU}(\bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}FW)
@@ -226,7 +267,7 @@ H = \text{ReLU}(\bar{D}^{-\frac{1}{2}}\bar{A}\bar{D}^{-\frac{1}{2}}FW)
 \\
 Where ReLU can be an other nonlinearity of choice. $\bar{A}$ is the (symmetric) adjacency matrix $A$ with added self connections $I$:$\bar{A} = A+I$, and $\bar{D_{ii}}=\sum_j\bar{A}_{ij}$. Further, $W$ is a trainable weight matrix similar to those in our earlier approaches. In our application, $\bar{A}$ would be of dimension $(N_d + V) \text{ x } (N_d + V)$, with both the upper left corner and the bottom right corner an identity matrix (note: explain what $A_{ij}$ is). We can rewrite \ref{GCE_layer} as:
 
-\begin{align}\label{GCE_layer}
+\begin{align}
 H = \text{ReLU}(X'W)
 \end{align}
 
@@ -315,28 +356,30 @@ First we will describe the datasets used, discuss briefly the evaluation metrics
 	\subsubsection{Experiment 1: A First Model}
 	Describe choice of number of latent variables, hidden units to start with (200e, 20d). Report lower bound train and test over time, as well as held-out test perplexity. For KOS and for NY Times
 	
-	\subsubsection{Hyperparameter Optimization}
+	\subsubsection{Hyperparameter Optimization}\label{HO_section}
 	\textit{How to motivate parameter chocies for which we do not have saved experimental results, such as gradual KLD increase, initialization and learning rates, reLU's?)}
 	For each dataset, we train models with different encoder and decoder structures in order to optimize these. We use 8 and 32 latent variables for the KOS and NY Times datasets, respectively. We use the whole KOS dataset as detailed in \ref{datasets}, but only use 100,000 NY Times documents for training. Many other hyperparameters such as optimization method and details (see \ref{optim_section}), initialization of parameters, and gradual increase of KL Divergence, are chosen based on preliminary experiments. These are all parameters that might influence convergence, but which theoretically do not influence the performance of a converged model. In case of nonlinearity types and choice of prior $p(\mathbf{z}$), we do not vary these because we did not note a significant influence of these choices on model performance in preliminary experiments.\\
 	We report all trained models and their performance in section \ref{ho}.
 	
 	
 	\subsubsection{Varying the Training Set Size}
-	To investigate how Vary training set size for NY Times dataset with a good model selected in hyperparameter optimization. Interested mainly in best lower bound and perplexity achieved per model. Can plot these both in one log-log plot. Want to add values to google sheets.
+	One question regarding a neural SGVB approach like ours is how well this is suited for different amounts of available training data. Our approach is assumed to be applicable to, and effective for,  large amounts of training data. Therefore we want to know if a model is better, in general, when trained on more data. Another question worth answering is how much training time scales with the size of the dataset. And lastly, it is useful to gain some insight in how prone a model is to overfitting with a relatively small dataset.\\
+	To answer these questions, we train a model with a relatively high capacity that was shown to perform well in the results of the hyperparameter optimization experiments in section \ref{HO_section}. We use training set sizes between 5k and 300k documents and test the models on the same test set of 1k documents. We compare effectiveness of converged models by reporting the test lowerbound and 50\% held-out test set perplexity. To get a feel for overfitting effects, we also report the difference between the best test lowerbound and perplexity during training to the values after convergence. Due to the large difference in training set size, a different number of epochs is used for each model. We also show the total number of documents evaluated before convergence (or overfitting) as a function of training set size to answer how training time scales with training set size.
 		
-	\subsection{Stickbreaking Topic VAE}
+	\subsection{Stickbreaking Topic VAE}\label{sbvae_exp}
 	
+	We also run experiments with stick-breaking VAE's as detailed in Section \ref{sbvae_section}. For both the KOS and NY datasets we train a model with an architecture that performed well with Gaussian latent variables (NY: 400200e100d, KOS: 200100e0d) in section \ref{HO_section} on the same training set used in that section for values of concentration parameter $a= \{1,3,6\}$ (see relevant equation). We show these results and a comparison to other methods in Section \ref{comp_methods}.
 	
-	Compare stickbreaking VAE to Gauss latent variables for a successfull model on KOS and NY. Need to know difference in runtime per epoch and number of epochs to compare computation time to convergence.
+	\subsection{Large Vocabulary Sizes}
+	For testing the benefit of using the infrequent words in the encoder with either a random projection (see \ref{RP}) and SVD  we use a similar approach. We use the same model architectures as in \ref{sbvae_exp}. All all words not used so far in experiments on the NY Times dataset (as explained in \ref{datasets}), are represented by either a random projection of these words or the largest singular values, as described in \ref{RP} and \ref{SVD}, respectively. For the NY Times dataset we use dimensionality $K = 200$. \\
+	\textit{do we even want to do this for KOS? Do we need to run more experiments, for example extra hidden layer for large model?)}
 	
-	\subsection{Random Projections}
-	\textit{What outcome measure do we really want to know?} 
-	 Might want to run 3 experiments: one with large vocabulary size $V$, one with small $V$, and one with small $V$ with random Projections added to input. 
+	\subsection{Word-Document Normalization}
 	
 	\subsection{Comparison to Other Methods}
 	LDA, DEF
 	
-	\subsection{Word-Document Normalization}
+	
 	
 	\section{Results}
 	
@@ -346,11 +389,11 @@ First we will describe the datasets used, discuss briefly the evaluation metrics
 	
 	\subsubsection{Hyperparameter Optimization}\label{ho}
 	
-	Figure \ref{HO_KOS} and \ref{HO_NY} detail the lowerbound of both the train and test sets of the used datasets for converged models with different encoder/decoder structures. We also report the the 50\% held-out perplexity on the test set.\\
+	Figure \ref{HO_KOS} and \ref{HO_NY} detail the lower bound of both the train and test sets of the used datasets for converged models with different encoder/decoder structures. We also report the the 50\% held-out perplexity on the test set.\\
 	Note that the encoder typically has many more parameters than the decoder. This if because the encoder is not prone to overfitting. \textit{explain} 
 	
-\begin{figure}
-	\begin{tabular}{l l|l l l }\label{HO_NY} 		
+	\begin{figure}
+	\begin{tabular}{l l|l l |l l }\label{HO_NY} 		
 		Encoder & Decoder & LB Train & LB Test & Perplexity  	\\
 		\hline
 		400 & -		& -7.354 & -7.378941743 & 1492 \\
@@ -373,8 +416,32 @@ First we will describe the datasets used, discuss briefly the evaluation metrics
 
 	\end{tabular}
 \end{figure}	
+	\subsection{Dataset Size}
+	As described in \ref{size_section}, we ran experiments on increasing training set sizes of the NY Times dataset, using the same hyperparameters each time. The results are shown in Figure ...
 
+	\subsection{Additions to Topic VAE}\label{comp_methods}
+	Stick Breaking, Random Projections, Batch Normalization, different normalization.
+	\begin{figure}
+		\begin{tabular}{l l l l | l l}\label{comp_ny} 		
+			Architecture* & Latent Variables & Infrequent words & Batch Normalization & Test lower bound & Perplexity  	\\ \hline
+				&	Gaussian	&	Unused				&	no	&	-7.308 	& 1415 \\ 
+				&	Gaussian	&	Unused				&	yes  &	 	&  \\ 
+			A	&	Gaussian	&	Random Projection	&	no	&	 	&   \\ 
+				&	Gaussian 	&	SVD					& no	&	 	& \\ 
+				&	Stick-Breaking	&	Unused	&	yes &	& \\  \hline
+&	Gaussian	&	Unused				&	no	&	 	&  \\ 
+&	Gaussian	&	Unused				&	yes  &	 	&  \\ 
+B	&	Gaussian	&	Random Projection	&	no	&	 	&   \\ 
+&	Gaussian 	&	SVD					& no	&	 	& \\ 
+&	Stick-Breaking	&	Unused	&	yes &	& \\  \hline
+	
+		\end{tabular}
+	\end{figure}
+	
 
+	
+
+		
 \chapter{Discussion}
 What are advantages/disadvantages of our method(s) compared to existing approaches?\\
 How does our method compare to other methods as far as perplexity goes? Can we understand this?\\
@@ -382,159 +449,5 @@ For which purposes would we recommend (one of) our approaches, and why? \\
 Thoughts: multiple layers of latent variables (or even a different architecture?) possible.
 \section{Conclusion}
 \section{Future Work}
-\chapter{Obsolete stuff}
-\section{Method (old)}
-
-
-The graphical model for such a VAE approach is as shown in Figure \ref{VAE}. When comparing this graphical model to e.g. LDA\cite{bleilda}, the largest difference is that this model only has one plate: each document is treated as an entity rather than a collection of words, and the model has document-level latent variables as opposed to word-level latent variables (mention DEF?). 
-
-\begin{figure}[ht]
-	\begin{center}
-		\begin{tikzpicture}[node distance = 1.5cm]
-		
-		
-		\node[obs] (d) {$d^{(i)}$};
-		
-		\node[latent, above=of d] (z) {$z^{(i)}$};
-		
-		\node[const, right=of z] (th) {$\theta$} ;
-		\node[const, left=of z] (ph) {$\phi$};
-		
-		
-		\edge {z} {d};
-		\edge {th} {z};
-		\edge [dashed,bend left] {d} {z}
-		\edge [dashed] {ph} {z}
-		
-		
-		
-		\plate {zd} {(z)(d)} {$i = 1...N$};
-		
-		\end{tikzpicture}
-	\end{center}
-	\caption{Graphical Model}
-	\label{VAE}
-\end{figure}
-
-
-Discuss implications of plate difference? Discuss alternative approach with separate latent variables and/or noise for each word?\\ \\
-
-\subsection{Application-specific choices}
-
-For the encoder $q(z|x)$ and the decoder $p(x|z)$ we use fully connected neural networks. The prior $p(z)$ over the latent variables is a Multivariate Gaussian with diagonal covariance: $N(0,0.01*I)$. A smaller variance than the variance $I$, often used in VAE's, proved to be more effective. This is presumably because the KL divergence is less restrictive this way. 
-\\
-(need to show experiment for smaller KLD?)
-
-
-The output of the decoder $p(x|z)$ is modeled as a Multinomial distribution. An obvious choice for count data such as bag-of-words data might also be a Poisson distribution. However, this also models document length, something we are not necessarily interested in.  
-
-Even though we might not want to model document length, it might be informative for the topic. From that perspective, it makes sense not to normalize the input $X$. However, this requires the encoder to be able to generalize over different input scales, as opposed to working with normalized data. We therefore perform experiments with both approaches.
-
-Discuss how interpretable the lower bound is (or later?). 
-
-\subsection{Objective Function}
-
-In a VAE, the log-likelihood of a data point i, $\mathbf{x}$, is written as a sum of the lower bound and the KL divergence term between the true posterior $p(z|x)$ and the approximation $q(z|x)$, with $\theta$ the parameters of the model:
-
-\begin{align*}
-\log p(\mathbf{x}^{(i)}) = D_{KL}(q(\mathbf{z}^{(i)}|\mathbf{x}^{(i)}) || p(\mathbf{z}|\mathbf{x}^{(i)})) + \mathcal{L}(\mathbf{\theta}, \phi)
-\end{align*}
-
-We optimize the lower bound on the log-likelihood: 
-
-\begin{align}
-%\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{d}^{(i)}) = 
-%\mathbf{E}_{q_\phi} (\mathbf{z}|\mathbf{d}^{(i)})}[-\log
-%q_\ph	i (\mathbf{z}| \mathbf{d}^{(i)})+\log
-%p_\theta(\mathbf{z}^{(i)}|\mathbf{d}^{(i)}]
-\end{align}
-
-which, using Bayes rule, we can express as:
-
-\begin{align}
-\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{x}^{(i)}) = -D_{KL}(q_\phi (\mathbf{z}| \mathbf{x}^{(i)})||p_\theta (\mathbf{z})) + \mathbf{E}_{q_\phi(\mathbf{z}|\mathbf{x}^{(i)})}[\log p_\theta (\mathbf{x}^{(i)}|\mathbf{z})]
-\end{align}
-
-
-
-Still following Kingma and Welling \cite{kingma2013auto}, we can integrate the KL divergence analytically to obtain: \\
-
-
-\begin{align}
-- D_{KL}(q_\phi (\mathbf{z}| \mathbf{x}^{(i)}||p_\theta (\mathbf{z}| \mathbf{x}^{(i)})) = \frac{1}{2}\sum\limits_{j=1}^{J}\{1+\log \sigma_{\phi ,j}^2 - \mu_{\phi,j}^2 - \sigma_{\phi ,j}^2\}
-\end{align}
-
-Where the $\mathbf{\mu}_{\theta,j}$ and $\mathbf{\sigma}_{\theta,j}^2$ represent the $j$ -th mean and variance of the parametrized $q_\theta(\mathbf{z}|\mathbf{d})$.
-
-An obvious choice for modeling the output distribution for count data would be Poisson. However, this also models the length of a document, which we do not expect to be very relevant for the topic. Therefore we use Multinomial probability for each word $x_n^{i}$ in document $d^{i}$. This way, we have that
-
-\begin{align}
-\log p_{\theta}(d^{(i)}|z^{(i)}) = 
-\sum_{n=1}^N
-\sum_{k=1}^K x_k^{(in)} \log (y_k^{(in)})
-\end{align}
-Where $k$ is the index of the output unit.\\
-
-
-Using a SGVB estimator, our final objective function consists of the negative KL divergence and the reconstruction error:
-
-\begin{align}
-\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{d}^{(i)}) = \frac{1}{2}\sum\limits_{j=1}^{J}\{1+\log \sigma_{\phi ,j}^2 - \mu_{\phi,j}^2 - \sigma_{\phi ,j}^2\} 
-+ \sum_{n=1}^N
-\sum_{k=1}^K x_k^{(in)} \log (y_k^{(in)})
-\end{align}
-
-\subsection{old derivation of objective function}
-
-In a VAE, the log-likelihood of a data point i, $\mathbf{x}$, is written as a sum of the lower bound and the KL divergence term between the true posterior $p(z|x)$ and the approximation $q(z|x)$, with $\theta$ the parameters of the model:
-
-\begin{align*}
-\log p(\mathbf{x}^{(i)}) = D_{KL}(q(\mathbf{z}^{(i)}|\mathbf{x}^{(i)}) || p(\mathbf{z}|\mathbf{x}^{(i)})) + \mathcal{L}(\mathbf{\theta}, \phi)
-\end{align*}
-
-We optimize the lower bound on the log-likelihood: 
-
-\begin{align}
-%\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{d}^{(i)}) = 
-%\mathbf{E}_{q_\phi} (\mathbf{z}|\mathbf{d}^{(i)})}[-\log
-%q_\ph	i (\mathbf{z}| \mathbf{d}^{(i)})+\log
-%p_\theta(\mathbf{z}^{(i)}|\mathbf{d}^{(i)}]
-\end{align}
-
-which, using Bayes rule, we can express as:
-
-\begin{align}
-\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{x}^{(i)}) = -D_{KL}(q_\phi (\mathbf{z}| \mathbf{x}^{(i)})||p_\theta (\mathbf{z})) + \mathbf{E}_{q_\phi(\mathbf{z}|\mathbf{x}^{(i)})}[\log p_\theta (\mathbf{x}^{(i)}|\mathbf{z})]
-\end{align}
-
-
-
-Still following Kingma and Welling \cite{kingma2013auto}, we can integrate the KL divergence analytically to obtain: \\
-
-
-\begin{align}
-- D_{KL}(q_\phi (\mathbf{z}| \mathbf{x}^{(i)}||p_\theta (\mathbf{z}| \mathbf{x}^{(i)})) = \frac{1}{2}\sum\limits_{j=1}^{J}\{1+\log \sigma_{\phi ,j}^2 - \mu_{\phi,j}^2 - \sigma_{\phi ,j}^2\}
-\end{align}
-
-Where the $\mathbf{\mu}_{\theta,j}$ and $\mathbf{\sigma}_{\theta,j}^2$ represent the $j$ -th mean and variance of the parametrized $q_\theta(\mathbf{z}|\mathbf{d})$.
-
-An obvious choice for modeling the output distribution for count data would be Poisson. However, this also models the length of a document, which we do not expect to be very relevant for the topic. Therefore we use Multinomial probability for each word $x_n^{i}$ in document $d^{i}$. This way, we have that
-
-\begin{align}
-\log p_{\theta}(d^{(i)}|z^{(i)}) = 
-\sum_{n=1}^N
-\sum_{k=1}^K x_k^{(in)} \log (y_k^{(in)})
-\end{align}
-Where $k$ is the index of the output unit.\\
-
-
-Using a SGVB estimator, our final objective function consists of the negative KL divergence and the reconstruction error:
-
-\begin{align}
-\mathcal{L}(\mathbf{\theta}, \phi; \mathbf{d}^{(i)}) = \frac{1}{2}\sum\limits_{j=1}^{J}\{1+\log \sigma_{\phi ,j}^2 - \mu_{\phi,j}^2 - \sigma_{\phi ,j}^2\} 
-+ \sum_{n=1}^N
-\sum_{k=1}^K x_k^{(in)} \log (y_k^{(in)})
-\end{align}
-
 \bibliography{ref}
 \end{document}
