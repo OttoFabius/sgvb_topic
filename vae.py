@@ -171,7 +171,7 @@ class topic_model:
 
         H_lin = th.sparse.dot(self.params['We1'], x) 
 
-        if self.rp==1:
+        if self.rp==1 or self.rp==2:
             H_lin = T.concatenate([H_lin, rest], axis=0)
         H = relu(H_lin + self.params['be1']) 
 
@@ -207,7 +207,7 @@ class topic_model:
                 z = mu
 
             KLD   =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0))
-            KLD_matrix = KLD
+
         if self.stickbreak==1:
 
             a = T.nnet.softplus(T.dot(self.params['We_mu'], H)  + self.params['be_mu']) + 1e-5
@@ -229,7 +229,7 @@ class topic_model:
                                   )
 
             z, new_sl_used = out
-            KLD, KLD_matrix = self.kld_kum(a, b)
+            KLD = self.kld_kum(a, b)
 
         KLD = self.KLD_weight * KLD
         KLD_factor = T.maximum(0, T.minimum(1, (epoch-self.KLD_free)/self.KLD_burnin))
@@ -291,7 +291,7 @@ class topic_model:
 
         
         self.update      =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_train], updates=updates, on_unused_input='ignore')#, mode=profmode)
-        self.lowerbound  =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD, KLD_matrix, a, b, v, z], on_unused_input='ignore')
+        self.lowerbound  =  th.function([x, dl, rest, unused_sum, epoch], [lowerbound, recon_err, KLD], on_unused_input='ignore')
         self.perplexity  =  th.function([x, x_test, unused_sum, rest]     , perplexity, on_unused_input='ignore')
 
     def kld_kum(self, a, b):
@@ -311,11 +311,11 @@ class topic_model:
         KLD += T.log(beta_func(self.prior_alpha, self.prior_beta))
         KLD += -(b-1)/(b)
 
-        KLD_matrix = KLD
+
         KLD = T.sum(KLD, axis=0)
         KLD = T.sum(KLD)
 
-        return KLD, KLD_matrix
+        return KLD
 
     def calc_batch_norm(self, x, gamma, beta):
         mu = T.sum(x, axis=1)/self.batch_size
@@ -372,7 +372,7 @@ class topic_model:
                 dl_batch = dl[batches[i]:batches[i+1]]
                 if type(rest)==np.ndarray:
                     rest_batch = rest[batches[i]:batches[i+1]].T
-                lb_batch, recon_batch, KLD_batch, KLD_matrix, a, b, v, z = self.lowerbound(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
+                lb_batch, recon_batch, KLD_batch = self.lowerbound(X_batch.T, dl_batch, rest_batch, unused_sum, epoch)
             else:
                 lb_batch, recon_batch = (0, 0) # doesnt work for non-batch_size :(             
             lowerbound += lb_batch
