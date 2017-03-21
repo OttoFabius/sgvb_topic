@@ -71,6 +71,10 @@ class topic_model:
 
         We1 = th.shared(np.random.normal(0,1,(argdict['HUe1'], self.voc_size)).astype(th.config.floatX), name = 'We1')
         be1 = th.shared(np.random.normal(0,1,(argdict['HUe1']+self.k, 1)).astype(th.config.floatX), name = 'be1', broadcastable=(False,True))
+        
+        if self.rp==3 or self.rp==4:
+            W_rp = th.shared(np.random.normal(0,1,(argdict['k'], argdict['k'])).astype(th.config.floatX), name = 'W_rp')
+            b_rp = th.shared(np.zeros((argdict['k'],1)).astype(th.config.floatX), name = 'b_rp', broadcastable=(False,True))
 
         if self.HUe2==0:
             H_e_last = argdict['HUe1']
@@ -130,7 +134,8 @@ class topic_model:
             self.params.update(dict([('Wd2', Wd2), ('bd2', bd2)]))
         if self.HUd2!=0:
             self.params.update(dict([('Wd3', Wd3), ('bd3', bd3)]))
-
+        if self.rp==3 or self.rp==4:
+            self.params.update(dict([('W_rp', W_rp), ('b_rp', b_rp)]))
         if self.batch_norm==1:
             for key in self.params.keys():
                 if 'We' in key:
@@ -173,6 +178,9 @@ class topic_model:
 
         if self.rp==1 or self.rp==2:
             H_lin = T.concatenate([H_lin, rest], axis=0)
+        elif self.rp==3 or self.rp==4:
+            H_rp = relu(T.dot(self.params['W_rp'], rest) + self.params['b_rp'])
+            H_lin = T.concatenate([H_lin, H_rp], axis=0)
         H = relu(H_lin + self.params['be1']) 
 
 

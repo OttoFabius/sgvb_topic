@@ -26,10 +26,10 @@ if __name__=="__main__":
     x = load_dataset(argdict)
     x = csc_matrix(x)
 
-    if argdict['rp']==1:        
+    if argdict['rp']==1 or argdict['rp']==3:        
         print 'using random projection of rest in encoder'
         rest = np.load('data/'+argdict['dataset']+'/data_proj_'+str(argdict['minfreq'])+'.npy')
-    elif argdict['rp']==2:    
+    elif argdict['rp']==2 or argdict['rp']==4:    
         print 'using singular values of rest in encoder'
         rest_train = np.load('data/'+argdict['dataset']+'/data_train_svd_'+str(argdict['minfreq'])+'.npy')
         rest_test = np.load('data/'+argdict['dataset']+'/data_test_svd_'+str(argdict['minfreq'])+'.npy')
@@ -57,7 +57,11 @@ if __name__=="__main__":
         x_train_in = concatenate_csc_matrices_by_columns(x_train, csc_matrix(x_train/csc_matrix.sum(x_train,0)))
         x_test_in = concatenate_csc_matrices_by_columns(x_test, csc_matrix(x_test/csc_matrix.sum(x_train,0)))
 
-    if argdict['rp']==1:
+    if argdict['rp']==1 or argdict['rp']==3:
+        if argdict['dataset_num']==0:
+            rest*=1
+        elif argdict['dataset_num']==1:
+            rest*=8.5
         rest_test = rest[:n_test,:]
         rest_train = rest[n_total-n_train:n_total,:]
     elif argdict['rp']==0:
@@ -117,7 +121,7 @@ if __name__=="__main__":
         x_train = x_train[idx,:]
         dl_train = dl_train[idx]
 
-        if argdict['rp']==1:
+        if argdict['rp']!=0:
             rest_train = rest_train[idx,:]
 
         lowerbound, recon_train, KLD, KLD_used = model.iterate(x_train, dl_train, unused_sum, epoch, rest=rest_train)
