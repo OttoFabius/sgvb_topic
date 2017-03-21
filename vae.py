@@ -207,7 +207,7 @@ class topic_model:
                 z = mu
 
             KLD   =  -T.sum(T.sum(1 + logvar - mu**2 - T.exp(logvar), axis=0))
-
+            KLD_matrix = KLD
         if self.stickbreak==1:
 
             a = T.nnet.softplus(T.dot(self.params['We_mu'], H)  + self.params['be_mu']) + 1e-5
