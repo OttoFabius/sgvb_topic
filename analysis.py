@@ -22,9 +22,10 @@ def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, sem, model_title, save_every
     plt.savefig("results/vae_own/" + model_title + '/kld')
     plt.close()
 
-    plt.plot(-lb)
-    plt.plot(-lb_test)
+    plt.plot(lb)
+    plt.plot(lb_test)
     plt.gca().set_xscale("log")
+    plt.ylim((-9, -6))
     plt.xlabel('Epochs')
     plt.ylabel('Lower Bound')
     plt.title('Lower Bound of Log Likelihood')
@@ -40,7 +41,7 @@ def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, sem, model_title, save_every
     plt.plot(xaxis, lowbound, 'b--')
     plt.gca().set_xscale("log")
 
-    plt.ylim((600, 2000))
+    plt.ylim((1400, 2500))
     # plt.legend(['Perplexity', 'upper confidence', 'lower confidence'])
     plt.xlabel('Epochs')
     plt.ylabel('Perplexity')
@@ -48,7 +49,7 @@ def plot_stats(lb, lb_test, KLD, KLDtrain, perplex, sem, model_title, save_every
     plt.title('Test Perplexity During Training')
     plt.savefig("results/vae_own/" + model_title + '/perplex')
     plt.close()
-    print "best stats:", np.min(lb), np.min(lb_test), np.min(perplex) 
+    print "best stats:", np.max(lb), np.max(lb_test), np.min(perplex) 
     print "end stats:", lb[-1], lb_test[-1], perplex[-1]
 
 def plot_used_dims(model, x_test, model_title):

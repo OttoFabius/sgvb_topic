@@ -42,26 +42,28 @@ if __name__=="__main__":
     # always use same test set
     x_test = x[:n_test,:]
     x_train = x[n_total-n_train:n_total,:]
+    
 
     dl_train = np.ndarray.flatten(np.array(csc_matrix.sum(x_train, axis=1)))
     dl_test  = np.ndarray.flatten(np.array(csc_matrix.sum(x_test , axis=1)))
     total_words_train = np.sum(dl_train)
 
-
-    # normalize per document NB should optimize this method for use on large datasets
     x_test_notnorm = x_test
+    # normalize per document NB should optimize this method for use on large datasets
+
     x_test = csc_matrix(x_test/csc_matrix.sum(x_test, 1))
     x_train = csc_matrix(x_train/csc_matrix.sum(x_train, 1))
-
-    if argdict['normalize_input']==2:
-        x_train_in = concatenate_csc_matrices_by_columns(x_train, csc_matrix(x_train/csc_matrix.sum(x_train,0)))
-        x_test_in = concatenate_csc_matrices_by_columns(x_test, csc_matrix(x_test/csc_matrix.sum(x_train,0)))
+    
+    if argdict['normalize_input']==2:  
+        x = row_col_norm(x)
+        x_test_rcn = x[:n_test,:]
+        x_train_rcn = x[n_total-n_train:n_total,:]   
 
     if argdict['rp']==1 or argdict['rp']==3:
         if argdict['dataset_num']==0:
             rest*=1
         elif argdict['dataset_num']==1:
-            rest*=8.5
+            rest*=1
         rest_test = rest[:n_test,:]
         rest_train = rest[n_total-n_train:n_total,:]
     elif argdict['rp']==0:

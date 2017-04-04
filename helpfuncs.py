@@ -381,6 +381,27 @@ def select_half(data_sparse, seen_words=0.5):
 
     return csc_matrix(data_seen), csc_matrix(data_unseen)
 
+def row_col_norm(x):
+
+    x = x/csc_matrix.max(x)
+    entries_1 = np.sqrt(np.squeeze(csc_matrix.sum(x, axis=1)))
+    entries_2 = np.sqrt(csc_matrix.sum(x, axis=0))
+
+    D_1 = lil_matrix((entries_1.size, entries_1.size))
+    D_2 = lil_matrix((entries_2.size, entries_2.size))
+
+    for i in xrange(entries_1.size):
+        D_1[i,i] = entries_1[0,i]
+
+    for i in xrange(entries_2.size):
+        D_2[i,i] = entries_2[0,i]
+    D_1 = csc_matrix(D_1)
+    D_2 = csc_matrix(D_2)
+
+    Astar = csc_matrix.dot(csc_matrix.dot(D_1,x),D_2)
+    print np.max(entries_1), np.max(entries_2), csc_matrix.max(Astar)
+    return Astar
+
 def concatenate_csr_matrices_by_rows(matrix1, matrix2):
     new_data = np.concatenate((matrix1.data, matrix2.data))
     new_indices = np.concatenate((matrix1.indices, matrix2.indices))
