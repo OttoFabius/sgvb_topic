@@ -314,9 +314,9 @@ We then use $K$ left-singular vectors with the highest singular values as $\math
 
 \chapter{Experiments and Results}\label{experiments}
 \section{General}
-First we will describe the datasets used, discuss briefly the evaluation metrics reported, as well as describe the general optimization method used in our experiments.
+First we will describe the datasets used, discuss briefly the evaluation metrics reported, as well as describe the general optimization method used in our experiments. 
 	\subsection{Datasets}\label{datasets}
-	For all methods, we ran experiments on the KOS and NY Times datasets, freely available at UCI\footnote{https://archive.ics.uci.edu/ml/datasets/Bag+of+Words}. Both datasets contain only words that occur more than ten times in the whole dataset. The KOS dataset contains 3430 documents and has a vocabulary size of 6906. The dataset was split into 3300 training documents and 130 test documents. The NY times dataset consists of 300,000 documents and has a vocabulary size of 102,660 words. For the NY Times dataset, we only use words that occur over 3,000 times in the dataset, which are 5319 unique words.  For this dataset, a test set of 1,000 documents was used.
+	For all methods, we ran experiments on the KOS and NY Times datasets, freely available at UCI\footnote{https://archive.ics.uci.edu/ml/datasets/Bag+of+Words}. Both datasets contain only words that occur more than ten times in the whole dataset. The KOS dataset contains 3430 documents and has a vocabulary size of 6906. The dataset was split into 3330 training documents and 130 test documents. The NY times dataset consists of 300,000 documents and has a vocabulary size of 102,660 words. For the NY Times dataset, we only use words that occur over 3,000 times in the dataset, which are 5319 unique words.  For this dataset, a test set of 1,000 documents was used.
 	\subsection{Evaluation}
 	Evaluating Topic models is often done by calculating the perplexity of held out words on the test set (e.g. \cite{blei2003latent, newman2007distributed, ranganath2015deep}). In this work, held-out perplexity is calculated for the test set as in Newman \& Welling \cite{newman2007distributed} by using half the words, randomly sampled, in each document for inference (i.e. calculating $p(\mathbf{z}|\mathbf{x})$ ). Let $\mathbf{x}_{i}^{(s)}$ be the half of document $\mathbf{x}_i$ used for inference, and $\mathbf{x}_{i}^{(u)}$ be the other half of the document, used for evaluation. The average per-word perplexity of the unseen words $\mathbf{X^{(u)}}$ in the test documents $X$ under the word-probabilities $p(X|Z)$, where $Z^s \sim p(\mathbf{Z}|X^{(s)})$ is then given by:
 	
@@ -329,7 +329,7 @@ First we will describe the datasets used, discuss briefly the evaluation metrics
 	Add some stuff on reporting the lower bound. Refer to earlier elaboration on LB per word.
 	
 	\subsection{General Optimization Method}\label{optim_section}
-	For all experiments we use the AdaM optimization method \cite{kingma2014adam}) with learning rate $\alpha = 0.003$ and hyperparameters $\beta_1 = 0.9$ and $\beta_2 = 0.99$. We use minibatch size 50 for the KOS dataset and 200 for NY Times. \\
+	For all experiments we use the AdaM optimization method \cite{kingma2014adam}) with hyperparameters $\beta_1 = 0.9$ and $\beta_2 = 0.99$. The learning rate $\alpha$ is chosen as high as possible without leading to instability, and is determined separately for the NY Times dataset and KOS dataset in Experiment 1 (\ref{exp1}). We use minibatch size 50 for the KOS dataset and 200 for NY Times.  \\
 	Weights for the first layer were initialized with random samples from $N(0,\text{I})$. initial weights in consecutive layers were drawn from  $N(0,\frac{1}{n})$, where $n$ is the number of input units to the corresponding layer. Biases were initialized at 0.
 	\\Lastly, KL divergence is linearly increased to it's final value during first 100 epochs of training to avoid getting stuck in a local optimum dominated by the KL divergence. 	
 
@@ -340,27 +340,28 @@ First we will describe the datasets used, discuss briefly the evaluation metrics
 	
 	
 	
-	\subsubsection{Experiment 1: Optimization and characteristics}
+	\subsubsection{Experiment 1: Optimization and characteristics}\label{exp1}
 	
 	Here we describe experiments on both datasets described in \ref{datasets} with a Topic VAE (\ref{TopicVAE}) to characterize behavior during optimization and to inspect initial results. \\
-	The only choice we have to make here is the architecture: the number of hidden layers and hidden units in the encoder and decoder. Overfitting in de decoder is something to keep in mind, so we roughly follow the guideline by Hinton \cite{hinton2012neural}: "(...) estimate how many bits it would take to describe each data-vector if you were using a good model. (...) Then multiply that estimate by the number of training cases and use a number of parameters that is about an order of magnitude smaller." As the perplexity is in the order of $2 \cdot 10^3$ (i.e. in \cite{ranganath2015deep}), the number of bits is approximately $\log_2(2 \cdot 10^3) = 11$. For the NY Times dataset we use  	Describe choice of number of latent variables, hidden units to start with (200e, 20d). Report lower bound train and test over time, as well as held-out test perplexity. For KOS and for NY Times
+	The only choice we have to make here is the architecture: the number of hidden layers and hidden units in the encoder and decoder. Overfitting in de decoder is something to keep in mind, so we roughly follow this guideline to prevent overfitting proposed by Hinton \cite{hinton2012neural}: "(...) estimate how many bits it would take to describe each data-vector if you were using a good model. (...) Then multiply that estimate by the number of training cases and use a number of parameters that is about an order of magnitude smaller." This means we can estimate the number of hidden units in the decoder according to $n_h \sim \frac{N*b}{V \cdot 10}$, where N is number of training cases and b is the number of bits needed. As the perplexity is in the order of $2 \cdot 10^3$ (i.e. in \cite{ranganath2015deep}), the number of bits is approximately $\log_2(2 \cdot 10^3) = 11$ for either dataset. For the KOS dataset we have $n_h \sim = \frac{3330 \cdot 11}{6906\cdot 10} = 0.53$. Therefore, we chose to use a linear decoder (i.e. no hidden layer) and 8 latent variables. For the encoder, we use 200 hidden units. Note that even then we use more parameters than ideal and we might be prone to overfitting in the decoder. \\
+	We use 100.000 randomly selected documents for training from the NY Times dataset, which means we can use in the order of $n_h \sim = \frac{100.000 \cdot 11}{5319\cdot 10} = 20.7$ hidden units. We use 50 hidden units in the decoder, which might just be enough to overfit, and 400 hidden units in the encoder. We use 32 latent variables for the NY Times dataset. We evaluate and report the per-word lower bound $\mathcal{L}_w$ on both the train and test set during training, as well as held-out perplexity on the test set. 
 	
-	\subsubsection{Experiment 2: Hyperparameter Optimization}\label{HO_section}
+	\subsubsection{Experiment 2: Hyperparameter optimization}\label{HO_section}
 	\textit{How to motivate parameter chocies for which we do not have saved experimental results, such as gradual KLD increase, initialization and learning rates, reLU's?)}
-	For each dataset, we train models with different encoder and decoder structures in order to optimize these. We use 8 and 32 latent variables for the KOS and NY Times datasets, respectively. We use the whole KOS dataset as detailed in \ref{datasets}, but only use 100,000 NY Times documents for training. Many other hyperparameters such as optimization method and details (see \ref{optim_section}), initialization of parameters, and gradual increase of KL Divergence, are chosen based on preliminary experiments. These are all parameters that might influence convergence, but which theoretically do not influence the performance of a converged model. In case of nonlinearity types and choice of prior $p(\mathbf{z}$), we do not vary these because we did not note a significant influence of these choices on model performance in preliminary experiments.\\
+	For each dataset, we train models with different encoder and decoder structures and compare results. We use 8 and 32 latent variables for the KOS and NY Times datasets, respectively. We use the datasets as specified in \ref{datasets}, but only use 100,000 NY Times documents for training. Many other hyperparameters such as optimization method and details (see \ref{optim_section}), initialization of parameters, and gradual increase of KL Divergence, are chosen based on preliminary experiments. These are all parameters that might influence convergence, but which theoretically do not influence the performance of a converged model. In case of nonlinearity types and strength of prior on $p(\mathbf{z}$) (i.e., the variance of the Gaussian), we do not vary these because we did not note a significant influence of these choices on model performance in preliminary experiments.\\
 	We report all trained models and their performance in section \ref{ho}.
 	
 	
-	\subsubsection{Experiment 3: Varying the Training Set Size}
-	One question regarding a neural SGVB approach like ours is how well this is suited for different amounts of available training data. Our approach is assumed to be applicable to, and effective for,  large amounts of training data. Therefore we want to know if a model is better, in general, when trained on more data. Another question worth answering is how much training time scales with the size of the dataset. And lastly, it is useful to gain some insight in how prone a model is to overfitting with a relatively small dataset.\\
-	To answer these questions, we train a model with a relatively high capacity that was shown to perform well in the results of the hyperparameter optimization experiments in section \ref{HO_section}. We use training set sizes between 5k and 300k documents and test the models on the same test set of 1k documents. We compare effectiveness of converged models by reporting the test lowerbound and 50\% held-out test set perplexity. Due to the large difference in training set size, a different number of epochs is used for each model. \textit{We also show the total number of documents evaluated before convergence (or overfitting) as a function of training set size to answer how training time scales with training set size}.
-	\subsection{Experiment 4: Batch Normalization}\label{batch_norm}
+	\subsubsection{Experiment 3: Varying the training set size}
+	One question regarding our approach is how well this is suited for different amounts of available data. We assume it to be applicable to, and effective for, large amounts of training data. Therefore we want to know if and how much a model improves, in general, when trained on more data. \textit{Another question worth answering is how much training time scales with the size of the dataset}. It is also useful to gain some insight in how prone a model is to overfitting with different amounts of data.\\
+	To answer these questions, we train a model with a relatively high capacity that was shown to perform well in the results of the hyperparameter optimization experiments in section \ref{HO_section}. We use training set sizes between 5,000 and 300,000 documents and test the models on the same test set of 1,000 documents. We compare effectiveness of converged models by reporting the test lowerbound and 50\% held-out test set perplexity. Due to the large difference in training set size, a different number of epochs is used for each model. \textit{We also show the total number of documents evaluated before convergence (or overfitting) as a function of training set size to answer how training time scales with training set size}.
+	\subsection{Experiment 4: Batch normalization}\label{batch_norm}
 	as explained in.... batch normalization benefits and perhaps super useful in our case. Test batch normalization of hidden layers of encoder and decoder. For KOS use this and this model, for NY use this and this model. Compare test lowerbound for convergence time and optimum. 
 	\subsection{Experiment 5: Stickbreaking Topic VAE}\label{sbvae_exp}
 	
 	We also run experiments with stick-breaking VAE's as detailed in Section \ref{sbvae_section}. For both the KOS and NY datasets we train a model with an architecture that performed well with Gaussian latent variables (NY: 400200e100d, KOS: 200100e0d) in section \ref{HO_section} on the same training set used in that section for values of concentration parameter $a= \{1,3,6\}$ (see relevant equation). We show these results and a comparison to other methods in Section \ref{comp_methods}.
 	
-	\subsection{Experiment 6: Large Vocabulary Sizes}\label{large_voc_size}
+	\subsection{Experiment 6: Large vocabulary sizes}\label{large_voc_size}
 	For testing the benefit of using the infrequent words in the encoder with either a random projection (see \ref{RP}) and SVD  we use a similar approach. We use the same model architectures as in \ref{sbvae_exp}. All all words not used so far in experiments on the NY Times dataset (as explained in \ref{datasets}), are represented by either a random projection of these words or the largest singular values, as described in \ref{RP} and \ref{SVD}, respectively. For the NY Times dataset we use dimensionality $K = 200$. \\
 	\textit{do we even want to do this for KOS? Do we need to run more experiments, for example extra hidden layer for large model?)}
 		
@@ -373,14 +374,31 @@ First we will describe the datasets used, discuss briefly the evaluation metrics
 	
 	\subsection{Topic VAE}
 	
-	\subsubsection{A First Model}
-	Report speed, convergence?
-	\subsubsection{Hyperparameter Optimization}\label{ho}
+	\subsubsection{Experiment 1: Optimization and characteristics}
+	Figure \ref{lb_first} shows the per word lower bound evaluated during training for models described in section \ref{exp1}. In both cases, the lowerbound on the test set does not decrease as the models converge, so they do not overfit on the train set. Notably, the train and test lower bound diverge much more on the KOS dataset than on the NY Times dataset, indicating the model trained on KOS learns much more that is specific to the training set. This is likely because the training set is so small compared to the NY Times dataset \textit{(or would we see this on NY times too if we had more parameters in the decoder?)}.\\
+	The 50\% held-out test set perplexity for both datasets is shown in Figure \ref{perp_first}. Notably, the perplexity does not improve after 50 (NY Times) and 100 (KOS) epochs, where the test lower bounds in Figure \ref{lb_first} start to converge but still show significant improvements after this point. This observation relates to the results of Experiment 6, and will be discussed in \ref{exp6_res}.
+
+	\begin{figure}
+		\includegraphics[scale = 0.40]{img/kos_400_0_lb.png}
+		\includegraphics[scale = 0.40]{img/ny_400_50_lb.png}
+		\caption{Test and train lower bound evaluated during training. Left: KOS dataset, right: NY Times dataset.}
+		\label{lb_first}
+	\end{figure}
+	
+
+	\begin{figure}
+		\includegraphics[scale = 0.40]{img/kos_200_0_perp.png}
+		\includegraphics[scale = 0.40]{img/ny_400_50_perp.png}
+		\caption{Perplexity evaluated during training. Left: KOS dataset, right: NY Times dataset.}
+		\label{perp_first}
+	\end{figure}
+	
+	\subsubsection{Experiment 2: Hyperparameter optimization}\label{ho}
 	
 	Figure \ref{HO_KOS} and \ref{HO_NY} detail the lower bound of both the train and test sets of the used datasets for converged models with different encoder/decoder structures. We also report the the 50\% held-out perplexity on the test set.\\
 	The results on the KOS dataset are dominated by the tendency of the decoder to overfit. The number of parameters in the decoder is dominated by the last layer, which contains $(n_h \text{ x } V)$ parameters. For the KOS dataset the number of documents (3300 in the train set) is small compared to the output space (6906). For the NY Times dataset, with 100,000 documents used for training and a used vocabulary size of 5319, this does not become a problem within the used range of architectures.  
 	
-	\begin{figure}\caption{Hyperparameter Optimization results on KOS}
+	\begin{figure}\caption{Hyperparameter Optimization results on KOS. The best scores are shown in red.}
 		\begin{tabular}{l l|l l |l l }\label{HO_KOS} 		
 			Encoder & Decoder & LB Train & LB Test & Perplexity  	\\
 			\hline
@@ -405,7 +423,7 @@ First we will describe the datasets used, discuss briefly the evaluation metrics
 		\end{tabular}
 	\end{figure}	
 	
-	\begin{figure}\caption{Hyperparameter Optimization results on NY Times}
+	\begin{figure}\caption{Hyperparameter Optimization results on NY Times. The best scores are shown in red.}
 	\begin{tabular}{l l|l l |l l }\label{HO_NY} 		
 		Encoder & Decoder & LB Train & LB Test & Perplexity  	\\
 		\hline
@@ -429,24 +447,24 @@ First we will describe the datasets used, discuss briefly the evaluation metrics
 \end{figure}	
 
 
-	\subsection{Dataset Size}
+	\subsection{Experiment 3: Varying the training set size}
 	As described in \ref{size_section}, we ran experiments on increasing training set sizes of the NY Times dataset, using the same hyperparameters each time. The results are shown in Figure \ref{increase}. Inspection of the lower bound on the test set revealed that overfitting occurred when using 5,000 and 10,000 training documents, but not when using 20,000 or more documents. This indicates that for larger amounts of data, a more powerful model (i.e. with more parameters) would yield better results. This is also indicated by the fact that the lower bound on the train set does not improve further when using more documents, but the lower bound on the test set does. In Table \ref{HO_NY}, it can indeed be seen that 500 hidden units in the decoder  leads to better results than the 200 units used in this experiment, when using 100,000 training documents.
 	
 	
 	\begin{figure}\label{increase}
-		\includegraphics[scale=0.7]{img/increase.png}
+		\includegraphics[scale=0.6]{img/increase.png}
 	\end{figure}
 
-	\subsection{Batch Normalization}
+	\subsection{Experiment 4: Batch Normalization}
 	Figure ... compares the test lower bound during training with batch normalization to the test lower bound without batch normalization. comparison of test lower bound over time for KOS and NY
 	
 	\begin{figure}\label{bn_kos}
-		\includegraphics[scale = 0.4]{img/bn_kos.png}
-		\includegraphics[scale = 0.4]{img/bn_ny.png}
+		\includegraphics[scale = 0.45]{img/bn_kos_test.png}
+		\includegraphics[scale = 0.45]{img/bn_ny_test.png}
 	\end{figure}
 %	\begin{figure}\label{bn_ny}
 %	\end{figure}
-	\subsection{Comparison of investigated methods}\label{comp_methods}
+	\subsection{Experiment 5: Comparison of investigated methods}\label{comp_methods}
 	In this section we compare the results of the different methods used in this thesis: Gaussian (\ref{TopicVAE}) and Stick-Breaking (\ref{sbvae_section}) latent variables, Random Projections or SVD on infrequent words (\ref{large_voc_size}), Batch Normalization (\ref{exp_batch_norm}). Figure \ref{comp_ny} compares the test lower bound and 50\% held-out test perplexity for the different methods on two architectures, and Figure \ref{comp_kos_small} and \ref{comp_kos_large} detail results for the KOS dataset. \\
 	\textit{Elaborate on what we see and why this is the case}\\
 	\textit{are we going to include RP and SVD with a hidden layer?}
@@ -480,7 +498,7 @@ First we will describe the datasets used, discuss briefly the evaluation metrics
 		\end{tabular}
 	\end{figure}
 
-\section{Comparison to Other Methods}
+\section{Experiment 6: Comparison to other methods}\label{exp6_res}
 
 As detailed in section \ref{comp_ny}, we compare 10\% held-out test perplexity to LDA \cite{blei2003latent} and Deep Exponential Families (\cite{ranganath2015deep}), as reported in \cite{ranganath2015deep}. An important finding is that during training the perplexity starts getting worse even though the test lower bound has not finished improving. This is shown in Figure \ref{10pcoverfit} and  For 50\% held-out test perplexity used in previous experiments, the perplexity usually stopped improving before the model had converged \textit{(add figure?)}. These results indicate that in the final phase of optimization, the encoder learns \textit{things that are more and more predicated on all words in the document}. To the best of our knowledge, this effect has not been described or investigated in the literature. \\
 As the lower bound of the test set still increases, we can conclude that this is not overfitting. We shall therefore report the best 10\% held-out test perplexity achieved during training, even though results get worse later on during convergence. \textit{discuss why this is fair? Discuss implications for comparing DEF to our method with different perplexity? Note that we do not want to run this ourself because computation and time?}.
