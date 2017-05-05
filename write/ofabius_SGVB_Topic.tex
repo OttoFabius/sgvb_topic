@@ -10,6 +10,7 @@
 \usepackage{wrapfig}
 \usepackage{xcolor}
 \usepackage[toc,page]{appendix}
+\usepackage{tabto}
 
 \newcommand{\specialcell}[2][c]{%
 	\begin{tabular}[#1]{@{}l@{}}#2\end{tabular}}
@@ -122,6 +123,10 @@ Briefly discuss the advantages of this approach compared to other methods in top
 \bibliographystyle{amsplain}
 
 \chapter{Background}
+In this background section we will introduce the relevant literature for this thesis. First we will briefly introduce the concept of Variational Inference, which can be applied to the various models discussed in this Chapter. Then we will briefly discuss the area Bag-of-Words Topic Modeling in section \ref{topmod}. Next, we will discuss two generative topic models, LDA (Section \ref{LDA}) and DEF (Section \ref{DEF}). After this, we discuss SGVB \cite{kingma2013auto} \cite{rezende2014stochastic} and its relation to LDA in Section \ref{sgvb_section}. Lastly, we will detail the Stick-Breaking Autoencoder \cite{nalisnick2016deep}, a variation of the VAE described in \cite{kingma2013auto}, in Section \ref{sbvae_section}.\\
+
+
+
 \section{Variational Inference}\label{varinf}
 Variational Inference is a method often applied to approximation the posterior distribution $p(\mathbf{Z}|\mathbf{X})$ of latent variables $\mathbf{Z}$ given observed variables $\mathbf{X}$. In most cases there is no analytical solution to the true posterior. Therefore, Variational Inference approximates the true posterior $p(\mathbf{Z}|\mathbf{X})$ with the variational distribution $q(\mathbf{Z})$, and optimizes $q(\mathbf{Z})$ to be as close as possible to $p(\mathbf{Z}|\mathbf{X})$. \\
 Following \cite{bishop2006pattern}, we start by decomposing the marginal log likelihood $\ln p(\mathbf{X})$:
@@ -143,25 +148,54 @@ Here, $\text{KL}(q||p)$ is a measure of how closely $q(\mathbf{Z})$ approximates
 %\begin{align}\label{elbodif}
 %\mathcal{L}(q) = \mathbb{E}[\ln p(\mathbf{X,Z})] + H[q])]
 %\end{align} 
-One way of restricting $q(\mathbf{Z})$ is by making simplifying assumptions about the distribution. For example, mean field variational inference \cite{bishop2006pattern} assumes $q(\mathbf{Z})$ factorizes into several disjoint groups, without making any other assumptions about the form of $q(\mathbf{Z})$. The models discussed in this thesis, however, use a different approach to restricting $q(\mathbf{Z})$, namely by parameterizing the approximation  by $\phi$, noted $q_\phi(\mathbf{Z})$. This way, we can optimize $\phi$ by performing stochastic gradient ascent on the lower bound in equation \ref{elbodecom}. However, this lower bound often decomposes into terms which are not all tractable to compute. There are different approaches to obtaining estimates of the lower bound (and, indeed, their gradients w.r.t. the variational parameters $\phi$). Some of these will be addressed in the rest of this background chapter, specifically in \ref{sgvb_section} and \ref{DEF}.
 
+\section{Bag-of-words Topic Modeling}\label{topmod}
+A Bag-of-Words representation of a document is a simplified vector representation as the multiset of its words. Thus, word-order and grammar are not considered in Bag-of-Words representations, but the simple vector representation allows for fast computation and use of off-the-shelf machine learning algorithms. Bag-of-Words representations have been a popular choice for document retrieval (e.g.\cite{landauer1990fully}) and document classification (e.g. \cite{li1998classification}), and has been used in the context of Computer Vision by considering all the features in an image independent of location (e.g. \cite{fei2005bayesian}). \\
+The application of the Bag-of-Words representation we are interested in is that of topic modeling. A topic model is a statistical model for discovering the hidden structure of a collection of documents. This hidden structure is often referred to as topics, implying the word probabilities in a document depend on the topic. In this work we will therefore sometimes refer to the hidden structure (or: latent representation) of a document as the topics. Although this intuitive way if interpretation is common practice in the literature (e.g. \cite{blei2003latent}), we must point out that the use of the word topics does not imply that the structure found with a topic model necessarily corresponds to what humans would judge to be topics. Evidence of this was provided by Chang et al. \cite{chang2009reading}, who conducted large scale user studies that showed popular probability based evaluation metrics do not always agree with semantically meaningful topics. However, in this work we do not have the means to perform user analyses on the topics found and we stick to much more commonly used practical measures which we will discuss in Section \ref{eval_section}).
 
-\section{Bag-of-words Topic Modeling}
-A Bag-of-Words representation of a document is a simplified vector representation as the multiset of its words. Thus, word-order and grammar are not considered in Bag-of-Words representations, but the simple vector representation allows for fast computation and use of off-the-shelf machine learning algorithms. Bag-of-Words representations have been a popular choice for document retrieval (e.g.\cite{landauer1990fully}) and document classification (e.g. \cite{li1998classification}), and has been used in the context of Computer Vision by considering all the features in an image independent of location (e.g. \cite{fei2005bayesian}. \\
-Another application of the Bag-of-Words representation is topic modeling. A topic model is a statistical model for discovering the hidden structure of a collection of documents. This hidden structure is often referred to as topics, implying the word probabilities in a document depend on the topic. While this notion is intuitive, note that the use of the word topics does not imply that the structure found with a topic model necessarily corresponds to what humans would judge to be topics.
+\section{LDA}\label{LDA}
+The first popular \textit{generative} probabilistic bag-of-words topic model is LDA \cite{blei2003latent}, which assumes the following generative process:
 
-\subsection{LDA}\label{LDA}
-The first popular \textit{generative} probabilistic topic model is LDA \cite{blei2003latent}. \\ \\
-Explain LDA 
-\subsection{Deep Exponential Families}\label{DEF}
+\begin{enumerate}\label{lda_algo}\itemsep3pt
+	\item{Choose $N \sim$ Poisson$(\xi)$}
+	\item{Choose $\theta \sim \text{Dir}(\alpha)$}
+	\item{For each of the $N$ words $w_n$:\\ 
+		\tabto{1.5cm} (a) Choose a topic $z_n \sim \text{Multinomial}(\theta)$\\
+		\tabto{1.5cm} (b) Choose a word  $w_n \sim p(w_n|z_n,\beta)$, a multinomial probability conditioned on \\ \tabto{2.23cm}the topic $z_n$}
+\end{enumerate}
+
+In this model, the Dirichlet distribution is assumed to have a known, fixed dimensionality, corresponding to the number of topics.\\
+To optimize model we need to perform inference on the posterior distribution of the topics $\mathbf{z}$ and its multinomial parameters $\theta$ given the document. Several methods have been developed for this, including Gibbs sampling \cite{griffiths2004finding}, Expectation Propagation \cite{minka2002expectation} and Variational Inference \cite{blei2003latent} methods. 
+
+%\begin{align}
+%p(\theta, \mathbf{z}|\mathbf{w}, \alpha, \beta) = \frac{p(\theta, \mathbf{z,w}|\alpha, \beta)}{p(\mathbf{w}|\alpha, \beta)}
+%\end{align}
+
+%One way of doing this is by introducing the variational distribution $q(\theta,\mathbf{z}|\gamma, \phi)$ as an approzimation 
+
+The choice of priors $\alpha$ and $\beta$ ...................
+The number of topics has a significant effect on model performance \cite{blei2003latent}. The choice of prior $\alpha$ also influences model performance. While \cite{blei2003latent} optimize this in a Bayesian fashion.In practice Wallach et al.\cite{wallach2009rethinking} recommend using a combination of uniform and but generally a uniform prior 
+		
+\section{Deep Exponential Families}\label{DEF}
 
 Deep exponential families is relevant for this work for two reasons: It shows that deeper models can be more powerful than LDA, and is currently the state of the art. Nothing in our methods depends on this section.
 
 
+\subsection{Mean Field Variational Inference}\label{MFVI}
+One way of restricting $q(\mathbf{Z})$ is by making simplifying assumptions about the distribution. For example, mean field variational inference \cite{bishop2006pattern} assumes $q(\mathbf{Z})$ factorizes into several disjoint groups, without making any other assumptions about the form of $q(\mathbf{Z})$. \\ \\
+explain mean field (bishop/def)
+
+
 \section{Stochastic Gradient Variational Bayes}\label{sgvb_section}
+
+
 
 Stochastic Gradient Variational Bayes concerns the problem scenario of a generative model $p_\theta(\mathbf{X}|\mathbf{Z})$ parametrized by $\theta$, and an approximation to the true posterior $q_\phi(\mathbf{Z}|\mathbf{X})$, parametrized by $\phi$. From a coding perspective, $q_\phi(\mathbf{Z}|\mathbf{X})$ is often referred to as the \textit{encoder}, as it produces a code $\mathbf{Z}$ of $\mathbf{X}$. Similarly, $p_\theta(\mathbf{X}|\mathbf{Z})$ is referred to as the \textit{decoder}, and in this work we will frequently use this terminology. \\
 Both the encoder and the decoder are optimized jointly, i.e. the parameters $\theta$ and $\phi$ are learned in the same process. This is done by means of Variational Inference (see section \ref{varinf}). Note that the approximation $q(\mathbf{Z}|\mathbf{X})$ now depends on the observed variable $\mathbf{X}$. As we concluded in Section \ref{varinf}, the lower bound in such problems (equation \ref{elbodecom}) is generally intractable. SGVB solves this with a reparametrization trick to obtain stochastic samples of the lower bound. 
+
+\subsection{Variational Inference with Parametrized Distributions}\label{paramVI}
+A different approach to restricting $q(\mathbf{Z})$ is by parameterizing the approximation by $\phi$, noted $q_\phi(\mathbf{Z})$. This way, one can optimize $\phi$ by performing stochastic gradient ascent on the lower bound in equation \ref{elbodecom}. However, obtaining gradients of this lower bound is not straightforward as it often decomposes into terms which are not all tractable to compute. There are different approaches to obtaining estimates of the lower bound (and, indeed, their gradients w.r.t. the variational parameters $\phi$). Some of these will be addressed in the rest of this background chapter, specifically in \ref{sgvb_section} and \ref{DEF}.
+
 
 \subsection{Lower Bound Estimator}\label{sgvbest}
 Before we detail the reparametrization, let us first rewrite the lower bound, following \cite{kingma2013auto}. We start from the form in equation \ref{elbodecom}, but now have an approximate posterior dependent on $\mathbf{X}$ and parametrization of encoder and decoder by $\theta$ and $\phi$, respectively. The dependency of $q(\mathbf{Z}|\mathbf{X})$ on $\mathbf{X}$ necessitates writing this in terms of individual data points $\mathbf{x}$:
@@ -172,22 +206,11 @@ Before we detail the reparametrization, let us first rewrite the lower bound, fo
 = -\text{KL}(q_\phi(\mathbf{z}|\mathbf{x}_i)||p_\theta(\mathbf{{z}})) + \mathbb{E}_{q_\phi(\mathbf{z}|\mathbf{x}_i)}[\ln p_\theta (\mathbf{x_i|z})]
 \end{align}
 
-We optimize the lower bound w.r.t. $\phi$ and $\theta$ using this estimate by error backpropagation. However, the gradients w.r.t. $\phi$ and $\theta$ have no closed form solution. Rather than use a Monte Carlo estimate for these gradient as in \cite{paisley2012variational}, SGVB uses a practical estimator for the lower bound and its derivatives that exhibits much lower variance.  
+We optimize the lower bound w.r.t. $\phi$ and $\theta$ using this estimate by error backpropagation. However, the gradients w.r.t. $\phi$ and $\theta$ have no closed form solution. Rather than use a Monte Carlo estimate for these gradients (as done in \cite{paisley2012variational}), SGVB uses a practical estimator for the lower bound and its derivatives that exhibits much lower variance.  
 
 \subsection{Reparametrization}\label{reparametrization}
 
-
-
-\subsection{Stick-Breaking VAE}\label{sbvae_section}
-As detailed in \ref{sgvb_section}, one restriction of SGVB in general is the need for a differentiable, non-centered parametrization of the latent variables. Therefore, e.g. Beta distributed latent variables (as used in e.g. LDA \cite{bleil2003latent}), can not be used in the SGVB framework. \\ Nalisnyck \& Smith extend SGVB to Stick-breaking priors by using the Kumaraswami Distribution as the approximate posterior. The rest of this section \ref{sbvae_section} is not much more than a description of the relevant part of Nalisnyck \& Smyth \cite{nalisnick2016deep}.\\ 
-Where other popular topic models such as LDA \cite{blei2003latent} and, to lesser extent, Deep Exponential Families \cite{ranganath2015deep} have binary latent variables with a the VAE approach described in section \ref{TopicVAE} has continuous latent variables. These are assumed to be independent and normally distributed. Using Beta distributed latent variables in a SGVB approach is not possible because, as explained in \ref{sbvae_section}, but we can use a stick-breaking VAE for topic modeling in a similar manner to the topic VAE described in \ref{TopicVAE}. We will therefore describe the model details in the same fashion as we did in \ref{TopicVAE}. \\
-
-\subsubsection{The Stick-Breaking Process}\label{sb_process}
-
-\subsubsection{The Kumaraswami Distribution}\label{kum}
-
-
-\section{Relation VAE to LDA}
+\subsection{Relation VAE to LDA}
 
 Discuss how closely related Graphical models are. Note that sampling separately for each word could facilitate the extra plate LDA has in a VAE approach, but then not only inefficient but also not possible to learn non-linear dependencies between words.
 
@@ -238,7 +261,18 @@ Discuss how closely related Graphical models are. Note that sampling separately 
 	\caption{Graphical Model of LDA (left) and VAE Topic Model (left)}
 \end{figure}
 
-\subsection{Neural Variational Inference for Topic Models}\label{NVItopic}
+\section{Stick-Breaking VAE}\label{sbvae_section}
+As detailed in \ref{sgvb_section}, one restriction of SGVB in general is the need for a differentiable, non-centered parametrization of the latent variables. Therefore, e.g. Beta distributed latent variables (as used in e.g. LDA \cite{bleil2003latent}), can not be used in the SGVB framework. \\ Nalisnyck \& Smith extend SGVB to Stick-breaking priors by using the Kumaraswami Distribution as the approximate posterior. The rest of this section \ref{sbvae_section} is not much more than a description of the relevant part of Nalisnyck \& Smyth \cite{nalisnick2016deep}.\\ 
+Where other popular topic models such as LDA \cite{blei2003latent} and, to lesser extent, Deep Exponential Families \cite{ranganath2015deep} have binary latent variables with a the VAE approach described in section \ref{TopicVAE} has continuous latent variables. These are assumed to be independent and normally distributed. Using Beta distributed latent variables in a SGVB approach is not possible because, as explained in \ref{sbvae_section}, but we can use a stick-breaking VAE for topic modeling in a similar manner to the topic VAE described in \ref{TopicVAE}. We will therefore describe the model details in the same fashion as we did in \ref{TopicVAE}. \\
+
+\subsection{The Stick-Breaking Process}\label{sb_process}
+
+\subsection{The Kumaraswami Distribution}\label{kum}
+
+
+
+
+\section{Neural Variational Inference for Topic Models}\label{NVItopic}
 NVI Topic Models: discuss in background? Our methods do not depend on this. Could move to discussion? Main contribution is that they got dirichlet  prior to work with laplace approximation.
 
 
@@ -405,14 +439,14 @@ We then use $K$ left-singular vectors with the highest singular values as $\math
 \section{General}
 Before we describe our specific experiments, we will describe the datasets used, the general optimization method used in our experiments, and the evaluation metrics reported. 
 	\subsection{Datasets}\label{datasets}
-	For all methods, we ran experiments on the KOS and New York Times datasets, freely available at UCI\footnote{https://archive.ics.uci.edu/ml/datasets/Bag+of+Words}. Both datasets contain only words that occur more than ten times in the whole dataset. The KOS dataset contains 3430 blog post entries and has a vocabulary size of 6906. The dataset was split into 3330 training documents and 130 test documents. The NY times dataset consists of 300,000 articles from the New York Times and has a vocabulary size of 102,660 words. For the NY Times dataset, we only use words that occur over 3,000 times in the dataset, which are 5319 unique words. For this dataset, a test set of 1,000 documents was used.
+	For all methods, we ran experiments on the KOS and New York Times datasets, freely available at UCI\footnote{https://archive.ics.uci.edu/ml/datasets/Bag+of+Words}. Stopwords and words that occur less than ten times in the whole dataset were removed for both datasets. After this, the KOS dataset contains 3430 blog post entries and has a vocabulary size of 6906. The dataset was split into 3330 training documents and 130 test documents. The NY times dataset consists of 300,000 articles from the New York Times and has a vocabulary size of 102,660 words. For the NY Times dataset, we only use words that occur over 3,000 times in the dataset, which are 5319 unique words. For this dataset, a test set of 1,000 documents was used.
 	
 	\subsection{General Optimization Method}\label{optim_section}
 	For all experiments we use the AdaM optimization method \cite{kingma2014adam}) with hyperparameters $\beta_1 = 0.9$ and $\beta_2 = 0.99$. Unless otherwise stated, we used learning rate $\alpha = 0.01$ for the KOS dataset and $\alpha = 0.003$ for NY Times dataset.  We use minibatch size of 50 for the KOS dataset and 200 for NY Times.  \\
 	Weights for the first layer were initialized with random samples from $N(0,\text{I})$. initial weights in consecutive layers were drawn from  $N(0,\frac{1}{n})$, where $n$ is the number of input units to the corresponding layer. Biases were initialized at 0.
 	\\Lastly, the KL divergence is weighted during training, with the weight linearly increasing from 0 to 1 during the first 100 epochs of training. This is done to avoid local optima dominated by the KL divergence. 	
 	
-	\subsection{Evaluation}
+	\subsection{Evaluation}\label{eval_section}
 	Comparison between different Topic VAE models is done by calculating the per-word lower bound estimate $\tilde{\mathcal{L}}_w$ (see equation \ref{perwordLBest}) on the test set. However, we can not compare our models to other methods using this metric. \\
 	Evaluating topic models is often done by calculating the perplexity of held out words on the test set (e.g. \cite{blei2003latent, newman2007distributed, ranganath2015deep}). In this work, held-out perplexity is calculated for the test set as in Newman \& Welling \cite{newman2007distributed} by using half the words, randomly sampled, in each document for inference (i.e. calculating $p(\mathbf{z}|\mathbf{x})$ ). Let $\mathbf{x}_{i}^{(s)}$ be the half of document $\mathbf{x}_i$ used for inference, and $\mathbf{x}_{i}^{(u)}$ be the other half of the document, used for evaluation. The average per-word perplexity of the unseen words $\mathbf{X^{(u)}}$ in the test documents $\mathbf{X}$ under the word-probabilities $p(\mathbf{x}^{(u)}|\mathbf{z}^{(s)})$, where $\mathbf{z}^{(s)} \sim p(\mathbf{z}|\mathbf{x}^{(s)})$, is then given by:
 	
